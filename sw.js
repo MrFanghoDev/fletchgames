@@ -1,0 +1,56 @@
+// Service worker de l'app shell -- cache-first sur les fichiers
+// statiques, pour un fonctionnement hors ligne après un premier
+// chargement. Même patron que fletchlog/sw.js, sans le cache de
+// tuiles OSM (pas de carte ici).
+
+const CACHE_NAME = "fletchgames-shell-v1";
+const FICHIERS_A_METTRE_EN_CACHE = [
+  "./",
+  "./index.html",
+  "./jouer.html",
+  "./aide.html",
+  "./theme.css",
+  "./theme.js",
+  "./i18n.js",
+  "./sw-register.js",
+  "./storage.js",
+  "./accueil.js",
+  "./jouer.js",
+  "./moteur/jeux/index.js",
+  "./moteur/jeux/petanque.js",
+  "./manifest.json",
+  "./icon.svg",
+  "./icon-192.png",
+  "./icon-512.png",
+];
+
+self.addEventListener("install", (evenement) => {
+  evenement.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(FICHIERS_A_METTRE_EN_CACHE)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (evenement) => {
+  evenement.waitUntil(
+    caches
+      .keys()
+      .then((noms) => Promise.all(noms.filter((nom) => nom !== CACHE_NAME).map((nom) => caches.delete(nom))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (evenement) => {
+  if (evenement.request.method !== "GET") return;
+
+  evenement.respondWith(
+    caches.match(evenement.request).then((reponseEnCache) => {
+      if (reponseEnCache) return reponseEnCache;
+      return fetch(evenement.request).catch(() => {
+        if (evenement.request.mode === "navigate") {
+          return caches.match("./index.html");
+        }
+        throw new Error("Ressource indisponible hors ligne et absente du cache.");
+      });
+    })
+  );
+});

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FletchGames</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1216">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FletchGames">
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* Page de jeu -- 4 écrans successifs (règles / mise en place / jeu /
+     fin), un seul visible à la fois via [hidden], commutés par
+     jouer.js. Pas de framework de routage : le nombre d'écrans est
+     fixe et connu d'avance. */
+  .ecran[hidden] { display: none; }
+  .ecran { margin-top: 1.25rem; }
+
+  .regles-liste { line-height: 1.7; font-size: 0.92rem; padding-left: 1.3rem; }
+  .regles-actions, .setup-actions, .fin-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1.2rem; }
+  .regles-actions button, .fin-actions button { flex: 1; }
+
+  .equipes-liste { display: flex; flex-direction: column; gap: 10px; margin-top: 0.75rem; }
+  .equipe-carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.8rem 1rem; }
+  .equipe-carte h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+  .equipe-carte .coequipier-ligne { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; color: var(--text-muted); padding: 0.25rem 0; }
+  .equipe-carte .coequipier-ligne button { flex: 0 0 auto; padding: 0.2rem 0.5rem; font-size: 0.75rem; background: transparent; color: var(--red); border: 1px solid var(--red); }
+
+  .panel.equipe-en-cours { margin-top: 1rem; }
+  .coequipier-form { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-top: 0.6rem; }
+  .coequipier-form .field { flex: 1 1 160px; }
+  .coequipier-form .field.fleches { flex: 0 0 90px; }
+  .coequipier-form button { flex: 0 0 auto; }
+
+  .setup-erreur { color: var(--red); font-size: 0.85rem; margin: 0.6rem 0 0; min-height: 1.2em; }
+
+  /* Écran de jeu -- classement toujours visible en haut, puis soit les
+     boutons "qui gagne la manche", soit (une équipe choisie) les
+     boutons de valeur possible pour CETTE équipe (voir
+     valeursPossibles() du moteur -- affiché dynamiquement, jamais une
+     plage fixe). */
+  .classement-jeu { display: flex; flex-direction: column; gap: 8px; margin: 1rem 0 1.4rem; }
+  .classement-ligne {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.7rem 1rem;
+  }
+  .classement-ligne .nom { font-weight: 600; }
+  .classement-ligne .points { font-variant-numeric: tabular-nums; font-size: 1.15rem; color: var(--gold); font-weight: 700; }
+
+  .saisie-titre { font-size: 0.95rem; color: var(--text-muted); margin: 0 0 0.7rem; text-align: center; }
+  .equipe-boutons { display: flex; flex-direction: column; gap: 8px; }
+  .equipe-bouton {
+    font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600; padding: 0.85rem 1rem;
+    border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    cursor: pointer; text-align: left;
+  }
+  .valeurs-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; }
+  .valeur-bouton {
+    font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; padding: 0.75rem 0;
+    border-radius: 10px; border: none; background: var(--gold); color: #1a1206; cursor: pointer;
+  }
+  .saisie-annuler { margin-top: 0.9rem; width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+  .fin-classement { display: flex; flex-direction: column; gap: 8px; margin: 1.2rem 0; }
+  .fin-ligne { display: flex; align-items: center; gap: 10px; padding: 0.6rem 0.9rem; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+  .fin-ligne .rang { font-weight: 700; color: var(--text-faint); width: 1.6em; }
+  .fin-ligne.rang-1 { border-color: var(--gold); }
+  .fin-ligne.rang-1 .rang { color: var(--gold); }
+  .fin-ligne .nom { flex: 1; font-weight: 600; }
+  .fin-ligne .points { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .fin-annonce { text-align: center; color: var(--text-muted); font-size: 0.95rem; margin: 0; }
+  .fin-annonce strong { color: var(--gold); }
+</style>
+</head>
+<body>
+
+  <div class="top-controls">
+    <div class="theme-toggle">
+      <button class="theme-btn" data-theme="system" onclick="setTheme('system')" data-i18n-aria-label="themeSystemLabel" aria-label="Thème système">◐</button>
+      <button class="theme-btn" data-theme="light" onclick="setTheme('light')" data-i18n-aria-label="themeLightLabel" aria-label="Thème clair">☀</button>
+      <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')" data-i18n-aria-label="themeDarkLabel" aria-label="Thème sombre">☾</button>
+    </div>
+    <div class="lang-toggle">
+      <button class="lang-btn" id="lang-fr-btn" onclick="setLanguage('fr')">FR</button>
+      <button class="lang-btn" id="lang-en-btn" onclick="setLanguage('en')">EN</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <a class="back" href="index.html" data-i18n="jouerRetourAccueil">← Retour à l'accueil</a>
+    <h1 id="jeu-titre"></h1>
+
+    <p class="view-empty" id="jeu-introuvable" data-i18n="jouerJeuIntrouvable" hidden>Ce jeu n'existe pas.</p>
+
+    <section class="ecran" id="ecran-regles" hidden>
+      <ol class="regles-liste" id="regles-liste"></ol>
+      <div class="regles-actions">
+        <button type="button" class="btn-primary" id="regles-commencer" data-i18n="reglesCommencer">Commencer</button>
+      </div>
+    </section>
+
+    <section class="ecran" id="ecran-setup" hidden>
+      <div class="equipes-liste" id="equipes-liste"></div>
+
+      <details class="panel equipe-en-cours" id="panel-nouvelle-equipe" open>
+        <summary>
+          <span data-i18n="setupNouvelleEquipeLabel">Nom de l'équipe</span>
+          <span class="chevron">›</span>
+        </summary>
+        <div class="panel-body">
+          <div class="field" id="champ-nom-equipe-conteneur">
+            <input type="text" id="champ-nom-equipe" data-i18n-placeholder="setupNouvelleEquipePlaceholder" placeholder="Ex. Les Archers du soir">
+          </div>
+          <div class="panel-footer">
+            <button type="button" class="btn-primary" id="creer-equipe" data-i18n="setupCreerEquipe">Créer l'équipe</button>
+          </div>
+
+          <div id="equipe-en-cours-corps" hidden>
+            <h3 id="equipe-en-cours-nom"></h3>
+            <div id="coequipiers-liste"></div>
+            <div class="coequipier-form">
+              <div class="field">
+                <label for="champ-nom-coequipier" data-i18n="setupCoequipierNomLabel">Nom du coéquipier</label>
+                <input type="text" id="champ-nom-coequipier" list="joueurs-connus" data-i18n-placeholder="setupCoequipierNomPlaceholder" placeholder="Ex. Julie">
+                <datalist id="joueurs-connus"></datalist>
+              </div>
+              <div class="field fleches">
+                <label for="champ-fleches-coequipier" data-i18n="setupCoequipierFlechesLabel">Flèches</label>
+                <input type="number" id="champ-fleches-coequipier" min="1" max="3" value="3">
+              </div>
+              <button type="button" class="btn-primary" id="ajouter-coequipier" data-i18n="setupAjouterCoequipier">Ajouter</button>
+            </div>
+          </div>
+          <p class="setup-erreur" id="setup-erreur"></p>
+        </div>
+      </details>
+
+      <div class="setup-actions">
+        <button type="button" class="btn-annuler" id="equipe-suivante" data-i18n="setupEquipeSuivante">Équipe suivante</button>
+        <button type="button" class="btn-primary" id="commencer-partie" data-i18n="setupCommencerPartie">Commencer la partie</button>
+      </div>
+    </section>
+
+    <section class="ecran" id="ecran-jeu" hidden>
+      <p class="fin-annonce" id="jeu-objectif"></p>
+      <div class="classement-jeu" id="classement-jeu"></div>
+
+      <div id="jeu-saisie-vainqueur">
+        <p class="saisie-titre" data-i18n="jeuQuiGagneManche">Qui a gagné cette manche ?</p>
+        <div class="equipe-boutons" id="equipe-boutons"></div>
+      </div>
+
+      <div id="jeu-saisie-valeur" hidden>
+        <p class="saisie-titre" id="valeur-titre"></p>
+        <div class="valeurs-grille" id="valeurs-grille"></div>
+        <button type="button" class="saisie-annuler" id="saisie-annuler" data-i18n="jeuAnnuler">Annuler</button>
+      </div>
+    </section>
+
+    <section class="ecran" id="ecran-fin" hidden>
+      <p class="fin-annonce" id="fin-annonce"></p>
+      <div class="fin-classement" id="fin-classement"></div>
+      <div class="fin-actions">
+        <button type="button" class="btn-annuler" id="fin-accueil" data-i18n="finAccueil">Retour à l'accueil</button>
+        <button type="button" class="btn-primary" id="fin-nouvelle-partie" data-i18n="finNouvellePartie">Nouvelle partie</button>
+      </div>
+    </section>
+  </div>
+
+<script src="i18n.js"></script>
+<script src="theme.js"></script>
+<script src="sw-register.js"></script>
+<script src="storage.js"></script>
+<script type="module" src="jouer.js"></script>
+</body>
+</html>

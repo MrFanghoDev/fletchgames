@@ -16,10 +16,12 @@
 <meta name="apple-mobile-web-app-title" content="FletchGames">
 <link rel="stylesheet" href="theme.css">
 <style>
-  /* Page d'accueil -- même patron que fletchlog/index.html (hero +
-     wordmark bicolore + sélecteurs thème/langue), construite sur
-     theme.css commun aux projets frères. */
+  /* Page d'accueil -- grand hero (retour utilisateur, 2026-08-24 :
+     la version compacte réduisait trop le logo/titre) suivi de deux
+     carrousels (jeux, puis historique/stats) et d'une carte Aide. */
   body { display: flex; flex-direction: column; align-items: center; padding: 5.5rem 1.25rem 2rem; min-height: 100vh; box-sizing: border-box; }
+  .accueil { width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center; }
+
   .hero { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 560px; }
   .hero img.mark { height: 186px; width: 186px; margin-bottom: 1.1rem; }
   /* display:block -- sans ça, le h1 générique de theme.css (display:flex;
@@ -30,9 +32,46 @@
   .hero h1 { display: block; font-size: 2.25rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 8px; }
   .hero h1 .games { color: var(--gold); }
   .hero .tagline { color: var(--text-muted); font-size: 1.02rem; margin: 0 0 0.6rem; line-height: 1.5; }
-  .hero .blurb { color: var(--text-faint); font-size: 0.9rem; line-height: 1.6; max-width: 480px; }
 
-  footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
+  /* margin-top généreux avant "Les jeux" (retour utilisateur, 2026-08-24)
+     -- le hero doit garder sa respiration d'origine (comme fletchlog),
+     pas être comprimé par la première section qui suit juste en dessous. */
+  .section-titre { align-self: flex-start; font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 3rem 0 0.6rem; }
+  .section-titre:first-of-type { margin-top: 2.5rem; }
+
+  /* Carrousel -- scroll-snap natif plutôt que le patron de piste/JS
+     de la lightbox de FletchLog (pensé pour du pinch-zoom photo, bien
+     plus qu'il n'en faut pour de simples cartes) : plus simple, geste
+     tactile natif du navigateur, pas de JS de glissement à maintenir. */
+  .carrousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 4px 10px; width: 100%; scrollbar-width: none; }
+  .carrousel::-webkit-scrollbar { display: none; }
+  .carrousel-carte {
+    scroll-snap-align: start; flex: 0 0 84%; max-width: 340px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem;
+    text-align: left; font-family: inherit; color: var(--text); cursor: default; display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  button.carrousel-carte { cursor: pointer; }
+  button.carrousel-carte:active { border-color: var(--gold); }
+  .carrousel-carte h3 { margin: 0; font-size: 1.05rem; }
+  .carrousel-carte .jeu-presentation { margin: 0; font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; }
+  .carrousel-carte .jeu-historique-mini { margin: 0; font-size: 0.78rem; color: var(--text-faint); }
+
+  .historique-carte .podium { display: flex; flex-direction: column; gap: 4px; margin: 0.2rem 0; }
+  .historique-carte .podium-ligne { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+  .historique-carte .podium-rang { width: 1.4em; color: var(--text-faint); font-weight: 700; }
+  .historique-carte .podium-nom { flex: 1; color: var(--text); }
+  .historique-carte .podium-victoires { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .historique-carte .stat-ligne { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
+  .historique-carte .stat-ligne strong { color: var(--gold); }
+
+  .carte-aide {
+    width: 100%; margin-top: 1.6rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.9rem 1rem; text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.92rem;
+  }
+  .carte-aide:hover { border-color: var(--gold); color: var(--gold); }
+
+  footer { margin-top: 2.5rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
   footer a { color: var(--text-muted); }
 </style>
 </head>
@@ -50,11 +89,20 @@
     </div>
   </div>
 
-  <div class="hero">
-    <img class="mark" src="icon.svg" alt="">
-    <h1>Fletch<span class="games">Games</span></h1>
-    <p class="tagline" data-i18n="homeTagline">Mini-jeux d'entraînement au tir à l'arc, sur un moteur de score commun.</p>
-    <p class="blurb" data-i18n="homeBlurb">Score classique, Killer, Bingo, Streak, Pari... plusieurs jeux, une seule façon de saisir tes volées. En solo ou à plusieurs sur un seul téléphone, sans compte, sans serveur. Encore en construction.</p>
+  <div class="accueil">
+    <div class="hero">
+      <img class="mark" src="icon.svg" alt="">
+      <h1>Fletch<span class="games">Games</span></h1>
+      <p class="tagline" data-i18n="homeTagline">Mini-jeux d'entraînement au tir à l'arc, sur un moteur de score commun.</p>
+    </div>
+
+    <h2 class="section-titre" data-i18n="accueilJeuxTitre">Les jeux</h2>
+    <div class="carrousel" id="carrousel-jeux"></div>
+
+    <h2 class="section-titre" data-i18n="accueilHistoriqueTitre">Historique et statistiques</h2>
+    <div class="carrousel" id="carrousel-historique"></div>
+
+    <a class="carte-aide" href="aide.html" data-i18n="aideLien">Aide</a>
   </div>
 
   <footer>
@@ -67,28 +115,8 @@
 
 <script src="i18n.js"></script>
 <script src="theme.js"></script>
-<script>
-  let currentLanguage = localStorage.getItem("fletchgames_lang") || "fr";
-
-  function applyTranslations() {
-    document.querySelectorAll("[data-i18n]").forEach((el) => {
-      el.textContent = t(currentLanguage, el.getAttribute("data-i18n"));
-    });
-    document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
-      el.setAttribute("aria-label", t(currentLanguage, el.getAttribute("data-i18n-aria-label")));
-    });
-    document.getElementById("lang-fr-btn").classList.toggle("active", currentLanguage === "fr");
-    document.getElementById("lang-en-btn").classList.toggle("active", currentLanguage === "en");
-    document.documentElement.lang = currentLanguage;
-  }
-
-  function setLanguage(lang) {
-    currentLanguage = lang;
-    localStorage.setItem("fletchgames_lang", lang);
-    applyTranslations();
-  }
-
-  applyTranslations();
-</script>
+<script src="sw-register.js"></script>
+<script src="storage.js"></script>
+<script type="module" src="accueil.js"></script>
 </body>
 </html>
