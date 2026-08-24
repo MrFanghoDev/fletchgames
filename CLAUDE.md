@@ -201,3 +201,25 @@ détaché (`nohup ... & disown`, pas `run_in_background` du harness qui
 peut se faire couper par un reset de session) et être patient plutôt
 que de multiplier les tentatives -- les process Chromium tournaient
 réellement, juste très lentement.
+
+## Piège rencontré : CACHE_NAME de sw.js pas rebumpé après coup (2026-08-24)
+
+Après le premier build (accueil + Pétanque, `CACHE_NAME =
+"fletchgames-shell-v1"`), l'utilisateur a testé `index.html` en local
+-- ce qui enregistre le service worker et précharge tous les fichiers
+listés dans `FICHIERS_A_METTRE_EN_CACHE` (dont `jouer.js`,
+`moteur/jeux/petanque.js`, `jouer.html`) dans le cache `v1`. Le tour
+suivant (mode individuel/équipe) a modifié `jouer.js`/`jouer.html`/
+`petanque.js` **sans toucher `sw.js`** -- oubli du réflexe déjà
+documenté chez FletchLog ("CACHE_NAME bumped on every precached-file
+change"). Résultat signalé par l'utilisateur : "pas de réponse après
+avoir appuyé sur Commencer" -- cohérent avec un navigateur qui continue
+de servir le bundle `v1` (cache-first, voir le `fetch` handler de
+`sw.js`) tant que `sw.js` lui-même n'a pas changé d'un seul octet (le
+navigateur ne redétecte une mise à jour qu'en comparant `sw.js` à
+l'ancienne version enregistrée -- pas en comparant les fichiers qu'il
+précharge). Corrigé en passant à `v2`. **Réflexe à prendre pour la
+suite de FletchGames** : dès qu'un fichier de `FICHIERS_A_METTRE_EN_CACHE`
+change, rebumper `CACHE_NAME` dans le même commit -- sinon toute
+modification reste invisible pour qui a déjà ouvert l'appli une fois,
+sans aucune erreur ni avertissement visible côté utilisateur.
