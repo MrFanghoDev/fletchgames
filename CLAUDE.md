@@ -62,7 +62,7 @@ l'exemple complet) :
 ```
 {
   id, nom: {fr, en}, presentation: {fr, en}, regles: {fr: [...], en: [...]},
-  uniteParticipant: "equipe" | "joueur",
+  modesParticipant: ["individuel", "equipe"],   // au moins un des deux, ordre = ordre d'affichage
   configParticipant: { champ, label: {fr, en}, min, max, defaut } | null,
   modeSaisie: "vainqueur-plus-valeur" | ...,  // seul mode câblé dans jouer.js pour l'instant
   objectifPoints,                              // optionnel
@@ -79,13 +79,29 @@ que Pétanque utilise) -- les autres valeurs prévues au contrat
 (`clavier`, `boutons` fixes) seront ajoutées quand un jeu les utilisera
 réellement, pas avant.
 
-**Pétanque** : `uniteParticipant: "equipe"` (même un joueur seul =
-équipe d'un seul membre, pas de cas spécial "solo"). `configParticipant`
-capture le nombre de flèches par coéquipier (1 à 3, défaut 3) pendant
-la mise en place. `valeursPossibles()` est **dynamique** : somme des
-flèches des coéquipiers de CE participant (une équipe à 2 coéquipiers
-à 3 flèches peut marquer jusqu'à 6 points d'un coup), pas une plage
-fixe. Objectif 13 points.
+**Individuel vs équipe** (retour utilisateur, 2026-08-24 : "il va
+falloir faire un mode individuel et un mode par équipe", généralisé au
+moteur plutôt que spécifique à Pétanque) : `modesParticipant` déclare
+ce que CE jeu supporte. Si les deux sont déclarés, `jouer.js` affiche un
+choix ("Comment voulez-vous jouer ?", écran `#mode-choix`) avant la
+mise en place, verrouillé pour toute la partie (choix remis à zéro à
+"Nouvelle partie") ; si un seul mode est déclaré, l'écran de choix est
+sauté automatiquement. **Un participant a toujours la même forme côté
+moteur** ({id, nom, joueurs:[...]}) quel que soit le mode -- en
+individuel, `joueurs` contient un seul élément (le joueur lui-même),
+créé directement sans étape de nommage d'équipe. Aucune fonction du
+contrat (`valeursPossibles`, `classement`, etc.) n'a besoin de savoir
+dans quel mode la partie a été jouée : c'est purement une différence
+d'assistant de mise en place (voir `jouer.js`, `choisirMode()` /
+`ajouterJoueurIndividuel()` vs le flux équipe existant).
+
+**Pétanque** : déclare `modesParticipant: ["individuel", "equipe"]`
+(les deux formats réels du jeu -- tête-à-tête vs doublette/triplette).
+`configParticipant` capture le nombre de flèches par membre (1 à 3,
+défaut 3) pendant la mise en place, dans les deux modes.
+`valeursPossibles()` est **dynamique** : somme des flèches des membres
+de CE participant (une équipe à 2 coéquipiers à 3 flèches peut marquer
+jusqu'à 6 points d'un coup), pas une plage fixe. Objectif 13 points.
 
 **Stockage** (`storage.js`, IndexedDB) : deux stores seulement,
 `joueurs` (mémorisés d'une partie à l'autre pour l'autocomplete) et
@@ -95,14 +111,23 @@ d'équipe n'a de sens que pour la partie du jour, voir le commentaire en
 tête de `storage.js`).
 
 **Page de jeu** (`jouer.html?jeu=<id>`, `jouer.js`) : 4 écrans dans
-l'ordre (règles → mise en place équipes/coéquipiers → manches →
-résultat final), un seul `<section class="ecran">` visible à la fois.
-La mise en place est séquentielle : nommer une équipe, lui ajouter des
-coéquipiers un par un (nom + flèches), "Équipe suivante" ou "Commencer
-la partie" (≥ 2 équipes requises). Vérifié par test Selenium réel
-(voir "Vérification" plus bas) : assistant de mise en place, plage de
-points dynamique correcte (`[1,2,3]` pour un coéquipier à 3 flèches),
-mise à jour du classement en direct.
+l'ordre (règles → mise en place → manches → résultat final), un seul
+`<section class="ecran">` visible à la fois. La mise en place démarre
+par le choix individuel/équipe (voir ci-dessus, sauté si un seul mode
+est supporté par le jeu), puis :
+- en équipe : nommer une équipe, lui ajouter des coéquipiers un par un
+  (nom + flèches), "Équipe suivante" ou "Commencer la partie" (≥ 2
+  équipes requises) ;
+- en individuel : ajouter des joueurs un par un (nom + flèches), chacun
+  devenant immédiatement un participant à part entière -- pas
+  d'"Équipe suivante" (le bouton est masqué), juste "Commencer la
+  partie" (≥ 2 joueurs requis).
+
+Vérifié par test Selenium réel (voir "Vérification" plus bas) dans les
+deux modes : écran de choix, assistant de mise en place adapté (titre
+de section, panneau affiché, bouton "Équipe suivante" masqué en
+individuel), plage de points dynamique correcte (`[1,2,3]` pour un
+participant à 3 flèches), mise à jour du classement en direct.
 
 **Page d'accueil** (`index.html`, `accueil.js`) : deux carrousels
 (scroll-snap CSS natif, pas le patron piste/JS de la lightbox photo de

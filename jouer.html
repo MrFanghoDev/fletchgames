@@ -38,6 +38,22 @@
 
   .setup-erreur { color: var(--red); font-size: 0.85rem; margin: 0.6rem 0 0; min-height: 1.2em; }
 
+  /* Choix individuel/équipe -- affiché seulement quand le jeu supporte
+     les deux (jeu.modesParticipant.length > 1, voir jouer.js). Un seul
+     choix par partie, pas de retour en arrière une fois le premier
+     participant ajouté (voir choisirMode() dans jouer.js). */
+  .mode-boutons { display: flex; flex-direction: column; gap: 10px; margin-top: 0.9rem; }
+  .mode-bouton {
+    display: flex; flex-direction: column; gap: 0.2rem; text-align: left; font-family: inherit;
+    padding: 0.9rem 1rem; border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  .mode-bouton:active { border-color: var(--gold); }
+  .mode-bouton-titre { font-weight: 700; font-size: 0.98rem; }
+  .mode-bouton-desc { font-size: 0.82rem; color: var(--text-muted); }
+
+  .section-titre { font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 0 0 0.4rem; }
+
   /* Écran de jeu -- classement toujours visible en haut, puis soit les
      boutons "qui gagne la manche", soit (une équipe choisie) les
      boutons de valeur possible pour CETTE équipe (voir
@@ -105,44 +121,82 @@
     </section>
 
     <section class="ecran" id="ecran-setup" hidden>
-      <div class="equipes-liste" id="equipes-liste"></div>
+      <div id="mode-choix" hidden>
+        <p class="saisie-titre" data-i18n="setupChoisirModeTitre">Comment voulez-vous jouer ?</p>
+        <div class="mode-boutons">
+          <button type="button" class="mode-bouton" id="mode-individuel">
+            <span class="mode-bouton-titre" data-i18n="setupModeIndividuelBouton">Individuel</span>
+            <span class="mode-bouton-desc" data-i18n="setupModeIndividuelDesc">Chaque joueur marque pour lui-même.</span>
+          </button>
+          <button type="button" class="mode-bouton" id="mode-equipe">
+            <span class="mode-bouton-titre" data-i18n="setupModeEquipeBouton">Équipe</span>
+            <span class="mode-bouton-desc" data-i18n="setupModeEquipeDesc">Les joueurs sont regroupés par équipe.</span>
+          </button>
+        </div>
+      </div>
 
-      <details class="panel equipe-en-cours" id="panel-nouvelle-equipe" open>
-        <summary>
-          <span data-i18n="setupNouvelleEquipeLabel">Nom de l'équipe</span>
-          <span class="chevron">›</span>
-        </summary>
-        <div class="panel-body">
-          <div class="field" id="champ-nom-equipe-conteneur">
-            <input type="text" id="champ-nom-equipe" data-i18n-placeholder="setupNouvelleEquipePlaceholder" placeholder="Ex. Les Archers du soir">
-          </div>
-          <div class="panel-footer">
-            <button type="button" class="btn-primary" id="creer-equipe" data-i18n="setupCreerEquipe">Créer l'équipe</button>
-          </div>
+      <div id="setup-corps" hidden>
+        <h2 class="section-titre" id="setup-participants-titre"></h2>
+        <div class="equipes-liste" id="equipes-liste"></div>
 
-          <div id="equipe-en-cours-corps" hidden>
-            <h3 id="equipe-en-cours-nom"></h3>
-            <div id="coequipiers-liste"></div>
-            <div class="coequipier-form">
-              <div class="field">
-                <label for="champ-nom-coequipier" data-i18n="setupCoequipierNomLabel">Nom du coéquipier</label>
-                <input type="text" id="champ-nom-coequipier" list="joueurs-connus" data-i18n-placeholder="setupCoequipierNomPlaceholder" placeholder="Ex. Julie">
-                <datalist id="joueurs-connus"></datalist>
+        <details class="panel equipe-en-cours" id="panel-nouvelle-equipe" open hidden>
+          <summary>
+            <span data-i18n="setupNouvelleEquipeLabel">Nom de l'équipe</span>
+            <span class="chevron">›</span>
+          </summary>
+          <div class="panel-body">
+            <div class="field" id="champ-nom-equipe-conteneur">
+              <input type="text" id="champ-nom-equipe" data-i18n-placeholder="setupNouvelleEquipePlaceholder" placeholder="Ex. Les Archers du soir">
+            </div>
+            <div class="panel-footer">
+              <button type="button" class="btn-primary" id="creer-equipe" data-i18n="setupCreerEquipe">Créer l'équipe</button>
+            </div>
+
+            <div id="equipe-en-cours-corps" hidden>
+              <h3 id="equipe-en-cours-nom"></h3>
+              <div id="coequipiers-liste"></div>
+              <div class="coequipier-form">
+                <div class="field">
+                  <label for="champ-nom-coequipier" data-i18n="setupCoequipierNomLabel">Nom du coéquipier</label>
+                  <input type="text" id="champ-nom-coequipier" list="joueurs-connus" data-i18n-placeholder="setupCoequipierNomPlaceholder" placeholder="Ex. Julie">
+                </div>
+                <div class="field fleches">
+                  <label for="champ-fleches-coequipier" data-i18n="setupCoequipierFlechesLabel">Flèches</label>
+                  <input type="number" id="champ-fleches-coequipier" min="1" max="3" value="3">
+                </div>
+                <button type="button" class="btn-primary" id="ajouter-coequipier" data-i18n="setupAjouterCoequipier">Ajouter</button>
               </div>
-              <div class="field fleches">
-                <label for="champ-fleches-coequipier" data-i18n="setupCoequipierFlechesLabel">Flèches</label>
-                <input type="number" id="champ-fleches-coequipier" min="1" max="3" value="3">
-              </div>
-              <button type="button" class="btn-primary" id="ajouter-coequipier" data-i18n="setupAjouterCoequipier">Ajouter</button>
             </div>
           </div>
-          <p class="setup-erreur" id="setup-erreur"></p>
-        </div>
-      </details>
+        </details>
 
-      <div class="setup-actions">
-        <button type="button" class="btn-annuler" id="equipe-suivante" data-i18n="setupEquipeSuivante">Équipe suivante</button>
-        <button type="button" class="btn-primary" id="commencer-partie" data-i18n="setupCommencerPartie">Commencer la partie</button>
+        <details class="panel" id="panel-nouveau-joueur" open hidden>
+          <summary>
+            <span data-i18n="setupAjouterJoueurLabel">Ajouter un joueur</span>
+            <span class="chevron">›</span>
+          </summary>
+          <div class="panel-body">
+            <div class="coequipier-form">
+              <div class="field">
+                <label for="champ-nom-joueur" data-i18n="setupJoueurNomLabel">Nom du joueur</label>
+                <input type="text" id="champ-nom-joueur" list="joueurs-connus" data-i18n-placeholder="setupJoueurNomPlaceholder" placeholder="Ex. Julie">
+              </div>
+              <div class="field fleches">
+                <label for="champ-fleches-joueur" data-i18n="setupCoequipierFlechesLabel">Flèches</label>
+                <input type="number" id="champ-fleches-joueur" min="1" max="3" value="3">
+              </div>
+              <button type="button" class="btn-primary" id="ajouter-joueur" data-i18n="setupAjouterCoequipier">Ajouter</button>
+            </div>
+          </div>
+        </details>
+
+        <datalist id="joueurs-connus"></datalist>
+        <p class="setup-erreur" id="setup-erreur"></p>
+
+        <div class="setup-actions">
+          <button type="button" class="btn-annuler" id="equipe-suivante" data-i18n="setupEquipeSuivante">Équipe suivante</button>
+          <button type="button" class="btn-primary" id="commencer-partie" data-i18n="setupCommencerPartie">Commencer la partie</button>
+        </div>
       </div>
     </section>
 

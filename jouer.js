@@ -1,13 +1,22 @@
-/* Page de jeu -- écran règles, mise en place (équipes/coéquipiers),
- * déroulé de la partie, puis résultat final. Un seul module pour les 4
- * écrans : pas de routage, juste des <section> qu'on montre/masque
- * (voir jouer.html, .ecran[hidden]).
+/* Page de jeu -- écran règles, mise en place (participants), déroulé de
+ * la partie, puis résultat final. Un seul module pour les 4 écrans :
+ * pas de routage, juste des <section> qu'on montre/masque (voir
+ * jouer.html, .ecran[hidden]).
  *
  * "vainqueur-plus-valeur" est le seul modeSaisie câblé ici pour
  * l'instant (le seul que Pétanque utilise) -- les autres modes prévus
  * au contrat du moteur (clavier, boutons) seront ajoutés quand un jeu
  * les utilisera réellement, pas avant (voir CLAUDE.md, principe
  * "pas de code pour un besoin hypothétique").
+ *
+ * Individuel vs équipe (jeu.modesParticipant) -- un participant a
+ * TOUJOURS la même forme côté moteur ({id, nom, joueurs:[...]}), que le
+ * joueur ait choisi de jouer seul ou en équipe : en individuel,
+ * `equipes` (le tableau ci-dessous, gardé sous ce nom même s'il
+ * contient des joueurs seuls -- même structure, pas la peine de
+ * dupliquer l'état) reçoit directement des participants à un seul
+ * membre, sans étape de nommage d'équipe. Voir choisirMode() et
+ * ajouterJoueurIndividuel().
  */
 import { obtenirJeu } from "./moteur/jeux/index.js";
 
@@ -17,6 +26,7 @@ const params = new URLSearchParams(location.search);
 const jeu = obtenirJeu(params.get("jeu"));
 
 let etape = "regles"; // "regles" | "setup" | "jeu" | "fin"
+let modeParticipant = null; // "individuel" | "equipe" -- choisi une fois par partie
 let equipes = [];
 let equipeEnCours = null;
 let joueursConnus = [];
@@ -48,7 +58,33 @@ function rendreRegles() {
 
 // ---- Écran mise en place ------------------------------------------------
 
+function choisirMode(mode) {
+  modeParticipant = mode;
+  equipes = [];
+  equipeEnCours = null;
+  rendreSetup();
+}
+
 function rendreSetup() {
+  const choixDispo = jeu.modesParticipant.length > 1;
+
+  if (choixDispo && !modeParticipant) {
+    document.getElementById("mode-choix").hidden = false;
+    document.getElementById("setup-corps").hidden = true;
+    return;
+  }
+  document.getElementById("mode-choix").hidden = true;
+  document.getElementById("setup-corps").hidden = false;
+
+  const enEquipe = modeParticipant === "equipe";
+  document.getElementById("setup-participants-titre").textContent = t(
+    currentLanguage,
+    enEquipe ? "setupEquipesEnregistrees" : "setupJoueursEnregistres"
+  );
+  document.getElementById("panel-nouvelle-equipe").hidden = !enEquipe;
+  document.getElementById("panel-nouveau-joueur").hidden = enEquipe;
+  document.getElementById("equipe-suivante").hidden = !enEquipe;
+
   const liste = document.getElementById("equipes-liste");
   liste.innerHTML = "";
   for (const equipe of equipes) {
@@ -57,17 +93,26 @@ function rendreSetup() {
     const titre = document.createElement("h3");
     titre.textContent = equipe.nom;
     carte.appendChild(titre);
-    for (const joueur of equipe.joueurs) {
-      const ligne = document.createElement("div");
-      ligne.className = "coequipier-ligne";
+    if (enEquipe) {
+      for (const joueur of equipe.joueurs) {
+        const ligne = document.createElement("div");
+        ligne.className = "coequipier-ligne";
+        const span = document.createElement("span");
+        span.textContent = `${joueur.nom} (${joueur.fleches})`;
+        ligne.appendChild(span);
+        carte.appendChild(ligne);
+      }
+    } else {
+      const sousTitre = document.createElement("div");
+      sousTitre.className = "coequipier-ligne";
       const span = document.createElement("span");
-      span.textContent = `${joueur.nom} (${joueur.fleches})`;
-      ligne.appendChild(span);
-      carte.appendChild(ligne);
+      span.textContent = `${t(currentLanguage, "setupCoequipierFlechesLabel")} : ${equipe.joueurs[0].fleches}`;
+      sousTitre.appendChild(span);
+      carte.appendChild(sousTitre);
     }
     const supprimer = document.createElement("button");
     supprimer.type = "button";
-    supprimer.textContent = t(currentLanguage, "setupSupprimerEquipe");
+    supprimer.textContent = t(currentLanguage, enEquipe ? "setupSupprimerEquipe" : "setupSupprimerJoueur");
     supprimer.addEventListener("click", () => {
       equipes = equipes.filter((e) => e.id !== equipe.id);
       rendreSetup();
@@ -151,6 +196,23 @@ async function ajouterCoequipier() {
   rendreSetup();
 }
 
+async function ajouterJoueurIndividuel() {
+  const champNom = document.getElementById("champ-nom-joueur");
+  const champFleches = document.getElementById("champ-fleches-joueur");
+  const nom = champNom.value.trim();
+  if (!nom) return;
+  const cfg = jeu.configParticipant;
+  let fleches = parseInt(champFleches.value, 10);
+  if (Number.isNaN(fleches)) fleches = cfg ? cfg.defaut : 3;
+  if (cfg) fleches = Math.min(cfg.max, Math.max(cfg.min, fleches));
+
+  const joueur = await resoudreJoueur(nom);
+  equipes.push({ id: crypto.randomUUID(), nom: joueur.nom, joueurs: [{ id: joueur.id, nom: joueur.nom, fleches }] });
+  champNom.value = "";
+  champFleches.value = String(cfg ? cfg.defaut : 3);
+  rendreSetup();
+}
+
 function finaliserEquipeEnCours() {
   if (!equipeEnCours) return true;
   if (equipeEnCours.joueurs.length === 0) {
@@ -170,7 +232,8 @@ function passerEquipeSuivante() {
 function commencerPartie() {
   if (!finaliserEquipeEnCours()) return;
   if (equipes.length < 2) {
-    document.getElementById("setup-erreur").textContent = t(currentLanguage, "setupAuMoinsDeuxEquipes");
+    const cle = modeParticipant === "equipe" ? "setupAuMoinsDeuxEquipes" : "setupAuMoinsDeuxJoueurs";
+    document.getElementById("setup-erreur").textContent = t(currentLanguage, cle);
     return;
   }
   etatsParParticipant = {};
@@ -259,7 +322,7 @@ function enregistrerManche(points) {
 async function terminerPartie() {
   const participants = equipes.map((e) => ({
     id: e.id,
-    type: jeu.uniteParticipant,
+    type: modeParticipant === "equipe" ? "equipe" : "joueur",
     nom: e.nom,
     joueurs: e.joueurs.map((j) => ({ id: j.id, nom: j.nom, fleches: j.fleches })),
   }));
@@ -301,6 +364,7 @@ function rendreFin() {
 }
 
 function reinitialiserPourNouvellePartie() {
+  modeParticipant = null;
   equipes = [];
   equipeEnCours = null;
   etatsParParticipant = {};
@@ -356,10 +420,17 @@ async function init() {
   }
 
   document.getElementById("jeu-titre").textContent = nomJeu();
-  document.getElementById("champ-fleches-coequipier").value = String(jeu.configParticipant ? jeu.configParticipant.defaut : 3);
   if (jeu.configParticipant) {
-    document.getElementById("champ-fleches-coequipier").min = String(jeu.configParticipant.min);
-    document.getElementById("champ-fleches-coequipier").max = String(jeu.configParticipant.max);
+    const { defaut, min, max } = jeu.configParticipant;
+    for (const id of ["champ-fleches-coequipier", "champ-fleches-joueur"]) {
+      const champ = document.getElementById(id);
+      champ.value = String(defaut);
+      champ.min = String(min);
+      champ.max = String(max);
+    }
+  }
+  if (jeu.modesParticipant.length === 1) {
+    modeParticipant = jeu.modesParticipant[0];
   }
 
   joueursConnus = await listerJoueurs();
@@ -373,8 +444,11 @@ async function init() {
     afficherEcran("ecran-setup");
     rendreSetup();
   });
+  document.getElementById("mode-individuel").addEventListener("click", () => choisirMode("individuel"));
+  document.getElementById("mode-equipe").addEventListener("click", () => choisirMode("equipe"));
   document.getElementById("creer-equipe").addEventListener("click", creerEquipe);
   document.getElementById("ajouter-coequipier").addEventListener("click", ajouterCoequipier);
+  document.getElementById("ajouter-joueur").addEventListener("click", ajouterJoueurIndividuel);
   document.getElementById("equipe-suivante").addEventListener("click", passerEquipeSuivante);
   document.getElementById("commencer-partie").addEventListener("click", commencerPartie);
   document.getElementById("saisie-annuler").addEventListener("click", () => {
