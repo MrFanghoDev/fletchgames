@@ -54,6 +54,19 @@ function rendreRegles() {
     li.textContent = ligne;
     liste.appendChild(li);
   }
+
+  const section = document.getElementById("regles-variantes-section");
+  const variantes = jeu.variantes ? jeu.variantes[currentLanguage] || jeu.variantes.fr : null;
+  section.hidden = !variantes || variantes.length === 0;
+  if (variantes) {
+    const listeVariantes = document.getElementById("regles-variantes-liste");
+    listeVariantes.innerHTML = "";
+    for (const ligne of variantes) {
+      const li = document.createElement("li");
+      li.textContent = ligne;
+      listeVariantes.appendChild(li);
+    }
+  }
 }
 
 // ---- Écran mise en place ------------------------------------------------

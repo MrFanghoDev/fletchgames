@@ -47,6 +47,25 @@ export const petanque = {
       "First to 13 points wins the game.",
     ],
   },
+  // Variantes -- optionnelles, purement des règles physiques du jeu réel
+  // (retour utilisateur, 2026-08-24) : n'affectent JAMAIS le moteur, la
+  // saisie reste toujours "qui gagne la manche + combien de points" --
+  // c'est aux archers d'en tenir compte dans leur propre décompte avant
+  // de saisir. Affichées à part des règles de base (voir jouer.html/
+  // jouer.js, section #regles-variantes-section) pour ne pas laisser
+  // croire qu'elles font partie de la liste numérotée obligatoire.
+  variantes: {
+    fr: [
+      "Le cochonnet peut être n'importe quel petit objet facile à repérer -- une balle de ping-pong fait très bien l'affaire.",
+      "La distance de tir peut être choisie à chaque manche par l'équipe qui vient de gagner : elle lance un cerceau (ou un autre repère) pour marquer le nouvel emplacement de tir -- simule le choix de terrain du pointeur à la pétanque.",
+      "Une petite cible peut être ajoutée près du cochonnet pour simuler carreaux et dégagements : centre touché = cette flèche remplace la meilleure flèche adverse (carreau) ; sinon anneau touché = la meilleure flèche adverse est retirée du décompte (dégagement) ; sinon la flèche ne compte pas.",
+    ],
+    en: [
+      "The jack can be any small, easy-to-spot object -- a ping-pong ball works well.",
+      "The shooting distance can be chosen each round by the team that just won: they throw a hoop (or any other marker) to set the new shooting spot -- simulates the pointer's choice of ground in real pétanque.",
+      "A small target can be added near the jack to simulate carreaux (direct hits) and dégagements (knock-outs): center hit = this arrow replaces the opponent's best arrow (carreau); otherwise ring hit = the opponent's best arrow is removed from the count (dégagement); otherwise the arrow doesn't count.",
+    ],
+  },
   modesParticipant: ["individuel", "equipe"],
   configParticipant: {
     champ: "fleches",

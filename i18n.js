@@ -38,6 +38,7 @@ const TRANSLATIONS = {
 
     reglesTitre: "Règles du jeu",
     reglesCommencer: "Commencer",
+    reglesVariantesTitre: "Variantes (facultatif)",
 
     setupTitre: "Mise en place",
     setupChoisirModeTitre: "Comment voulez-vous jouer ?",
@@ -132,6 +133,7 @@ const TRANSLATIONS = {
 
     reglesTitre: "Rules",
     reglesCommencer: "Start",
+    reglesVariantesTitre: "Variants (optional)",
 
     setupTitre: "Setup",
     setupChoisirModeTitre: "How do you want to play?",

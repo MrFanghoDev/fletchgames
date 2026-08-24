@@ -21,6 +21,12 @@
   .ecran { margin-top: 1.25rem; }
 
   .regles-liste { line-height: 1.7; font-size: 0.92rem; padding-left: 1.3rem; }
+  /* Variantes -- règles optionnelles du jeu réel, jamais interprétées
+     par le moteur (voir petanque.js) : détachées visuellement de la
+     liste numérotée principale (puces plutôt que chiffres, ton plus
+     discret) pour ne pas laisser croire qu'elles sont obligatoires. */
+  #regles-variantes-section { margin-top: 1.4rem; }
+  .regles-variantes-liste { color: var(--text-muted); }
   .regles-actions, .setup-actions, .fin-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1.2rem; }
   .regles-actions button, .fin-actions button { flex: 1; }
 
@@ -115,6 +121,10 @@
 
     <section class="ecran" id="ecran-regles" hidden>
       <ol class="regles-liste" id="regles-liste"></ol>
+      <div id="regles-variantes-section" hidden>
+        <h2 class="section-titre" data-i18n="reglesVariantesTitre">Variantes (facultatif)</h2>
+        <ul class="regles-liste regles-variantes-liste" id="regles-variantes-liste"></ul>
+      </div>
       <div class="regles-actions">
         <button type="button" class="btn-primary" id="regles-commencer" data-i18n="reglesCommencer">Commencer</button>
       </div>
