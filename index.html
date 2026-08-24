@@ -45,6 +45,11 @@
      tactile natif du navigateur, pas de JS de glissement à maintenir. */
   .carrousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 4px 10px; width: 100%; scrollbar-width: none; }
   .carrousel::-webkit-scrollbar { display: none; }
+  /* Cadre or sur les cartes du carrousel des jeux (retour utilisateur,
+     2026-08-25) -- seulement celles-ci, pas celles de l'historique :
+     ce sont celles qu'on touche pour lancer une partie, méritent de
+     ressortir un peu plus sur la page. */
+  #carrousel-jeux .carrousel-carte { border-color: var(--gold); }
   .carrousel-carte {
     scroll-snap-align: start; flex: 0 0 84%; max-width: 340px; background: var(--surface);
     border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem;
