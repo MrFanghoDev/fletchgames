@@ -69,9 +69,12 @@ const TRANSLATIONS = {
 
     jeuQuiGagneManche: "Qui a gagné cette manche ?",
     jeuCombienPoints: "Combien de points ?",
+    jeuQuelScore: "Quel score ?",
+    jeuValider: "Valider",
     jeuAnnuler: "Annuler",
     jeuObjectif: "Objectif :",
     jeuPoints: "pts",
+    jeuManchesGagnees: "manches gagnées",
 
     finTitre: "Partie terminée !",
     finVainqueur: "remporte la partie.",
@@ -164,9 +167,12 @@ const TRANSLATIONS = {
 
     jeuQuiGagneManche: "Which team won this round?",
     jeuCombienPoints: "How many points?",
+    jeuQuelScore: "What's the score?",
+    jeuValider: "Confirm",
     jeuAnnuler: "Cancel",
     jeuObjectif: "Target:",
     jeuPoints: "pts",
+    jeuManchesGagnees: "round wins",
 
     finTitre: "Game over!",
     finVainqueur: "wins the game.",

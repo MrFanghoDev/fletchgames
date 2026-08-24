@@ -73,6 +73,7 @@
   }
   .classement-ligne .nom { font-weight: 600; }
   .classement-ligne .points { font-variant-numeric: tabular-nums; font-size: 1.15rem; color: var(--gold); font-weight: 700; }
+  .classement-ligne .victoires { font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--text-faint); margin-left: 6px; }
 
   .saisie-titre { font-size: 0.95rem; color: var(--text-muted); margin: 0 0 0.7rem; text-align: center; }
   .equipe-boutons { display: flex; flex-direction: column; gap: 8px; }
@@ -87,6 +88,10 @@
     border-radius: 10px; border: none; background: var(--gold); color: #1a1206; cursor: pointer;
   }
   .saisie-annuler { margin-top: 0.9rem; width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+  .score-chacun-form { display: flex; gap: 8px; }
+  .score-chacun-form input { flex: 1; font-family: var(--font-mono); font-size: 1.3rem; text-align: center; }
+  .score-chacun-form button { flex: 0 0 auto; }
 
   .fin-classement { display: flex; flex-direction: column; gap: 8px; margin: 1.2rem 0; }
   .fin-ligne { display: flex; align-items: center; gap: 10px; padding: 0.6rem 0.9rem; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
@@ -170,7 +175,7 @@
                   <label for="champ-nom-coequipier" data-i18n="setupCoequipierNomLabel">Nom du coéquipier</label>
                   <input type="text" id="champ-nom-coequipier" list="joueurs-connus" data-i18n-placeholder="setupCoequipierNomPlaceholder" placeholder="Ex. Julie">
                 </div>
-                <div class="field fleches">
+                <div class="field fleches" id="champ-fleches-coequipier-conteneur">
                   <label for="champ-fleches-coequipier" data-i18n="setupCoequipierFlechesLabel">Flèches</label>
                   <input type="number" id="champ-fleches-coequipier" min="1" max="3" value="3">
                 </div>
@@ -191,7 +196,7 @@
                 <label for="champ-nom-joueur" data-i18n="setupJoueurNomLabel">Nom du joueur</label>
                 <input type="text" id="champ-nom-joueur" list="joueurs-connus" data-i18n-placeholder="setupJoueurNomPlaceholder" placeholder="Ex. Julie">
               </div>
-              <div class="field fleches">
+              <div class="field fleches" id="champ-fleches-joueur-conteneur">
                 <label for="champ-fleches-joueur" data-i18n="setupCoequipierFlechesLabel">Flèches</label>
                 <input type="number" id="champ-fleches-joueur" min="1" max="3" value="3">
               </div>
@@ -223,6 +228,18 @@
         <p class="saisie-titre" id="valeur-titre"></p>
         <div class="valeurs-grille" id="valeurs-grille"></div>
         <button type="button" class="saisie-annuler" id="saisie-annuler" data-i18n="jeuAnnuler">Annuler</button>
+      </div>
+
+      <!-- modeSaisie "score-chacun-son-tour" -- chaque participant entre
+           son propre score à tour de rôle (voir jouer.js), contrairement
+           à "vainqueur-plus-valeur" ci-dessus où seul le vainqueur de la
+           manche saisit une valeur. -->
+      <div id="jeu-saisie-score-chacun" hidden>
+        <p class="saisie-titre" id="score-chacun-titre"></p>
+        <div class="score-chacun-form">
+          <input type="number" id="champ-score-chacun" min="0" value="0">
+          <button type="button" class="btn-primary" id="score-chacun-valider" data-i18n="jeuValider">Valider</button>
+        </div>
       </div>
     </section>
 

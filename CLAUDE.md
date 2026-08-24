@@ -54,7 +54,7 @@ Discuté dans fletchapps#3 avant tout code.
   l'environnement `github-pages`, et déploiement silencieusement
   ignoré sur un SHA déjà publié).
 
-## Moteur de jeu (implémenté le 2026-08-24, Pétanque en premier jeu)
+## Moteur de jeu (implémenté le 2026-08-24, Pétanque puis Triangle)
 
 Contrat d'un module `moteur/jeux/<jeu>.js` (voir `petanque.js` pour
 l'exemple complet) :
@@ -62,11 +62,13 @@ l'exemple complet) :
 ```
 {
   id, nom: {fr, en}, presentation: {fr, en}, regles: {fr: [...], en: [...]},
+  variantes: {fr: [...], en: [...]} | undefined,  // optionnel, règles facultatives (voir plus bas)
   modesParticipant: ["individuel", "equipe"],   // au moins un des deux, ordre = ordre d'affichage
   configParticipant: { champ, label: {fr, en}, min, max, defaut } | null,
-  modeSaisie: "vainqueur-plus-valeur" | ...,  // seul mode câblé dans jouer.js pour l'instant
-  objectifPoints,                              // optionnel
-  valeursPossibles(participant) -> number[],    // boutons de points proposés pour CE participant
+  modeSaisie: "vainqueur-plus-valeur" | "score-chacun-son-tour" | ...,
+  objectifPoints,       // optionnel -- fin de partie par seuil de points (Pétanque)
+  objectifVictoires,    // optionnel -- fin de partie par nombre de manches gagnées (Triangle)
+  valeursPossibles(participant) -> number[],    // requis seulement pour "vainqueur-plus-valeur"
   etatInitial() -> etat,
   appliquerManche(etat, saisie) -> etat,
   estTerminee(etatsParParticipant) -> bool,
@@ -74,10 +76,42 @@ l'exemple complet) :
 }
 ```
 
-`jouer.js` ne câble que `modeSaisie: "vainqueur-plus-valeur"` (le seul
-que Pétanque utilise) -- les autres valeurs prévues au contrat
-(`clavier`, `boutons` fixes) seront ajoutées quand un jeu les utilisera
-réellement, pas avant.
+Deux `modeSaisie` câblés dans `jouer.js` pour l'instant :
+- **"vainqueur-plus-valeur"** (Pétanque) : on désigne le vainqueur de
+  la manche, puis sa valeur parmi `valeursPossibles(participant)` --
+  requiert cette fonction. Les autres participants ne saisissent rien.
+- **"score-chacun-son-tour"** (Triangle, ajouté le 2026-08-24) : CHAQUE
+  participant saisit son propre score à tour de rôle (nombre libre
+  saisi via `<input type="number">`, pas de plage prédéfinie --
+  `valeursPossibles` n'est pas utilisé). Une fois tout le monde passé,
+  jouer.js calcule le(s) meilleur(s) score(s) de la manche et appelle
+  `appliquerManche(etat, {points, gagnant})` pour TOUS les
+  participants (pas seulement le vainqueur comme dans l'autre mode) --
+  `gagnant` vaut `true` pour chacun des scores maximaux (égalité =
+  plusieurs vainqueurs de manche, tous crédités). C'est ce qui permet à
+  Triangle de suivre à la fois un score cumulé (`points`, somme des
+  manches) et un compteur de victoires (`victoires`, pour
+  `objectifVictoires`) dans le même `etat`.
+
+D'autres valeurs de `modeSaisie` prévues au contrat (clavier fixe,
+boutons fixes) seront ajoutées quand un jeu les utilisera réellement,
+pas avant.
+
+**`configParticipant: null`** (Triangle, premier jeu dans ce cas) :
+quand un jeu n'a besoin d'aucun réglage par participant (pas de
+"flèches" ou équivalent), l'assistant de mise en place masque
+entièrement ce champ (voir `jouer.js`, `champ-fleches-*-conteneur`) --
+les objets `joueur` créés n'ont alors pas de propriété `fleches` du
+tout (`undefined`, jamais une valeur par défaut arbitraire).
+
+**Variantes** (`jeu.variantes`, ajouté le 2026-08-24 pour Pétanque) :
+règles optionnelles du jeu RÉEL (matériel, mise en place physique),
+jamais interprétées par le moteur -- affichées à part de la liste
+numérotée principale sur l'écran de règles (`#regles-variantes-section`,
+puces plutôt que chiffres) pour ne pas laisser croire qu'elles sont
+obligatoires. La saisie en jeu reste toujours la même quel que soit le
+nombre de variantes actives : c'est aux archers d'en tenir compte dans
+leur propre décompte avant de saisir.
 
 **Individuel vs équipe** (retour utilisateur, 2026-08-24 : "il va
 falloir faire un mode individuel et un mode par équipe", généralisé au
@@ -102,6 +136,20 @@ défaut 3) pendant la mise en place, dans les deux modes.
 `valeursPossibles()` est **dynamique** : somme des flèches des membres
 de CE participant (une équipe à 2 coéquipiers à 3 flèches peut marquer
 jusqu'à 6 points d'un coup), pas une plage fixe. Objectif 13 points.
+
+**Triangle** (2e jeu, 2026-08-24 -- retour utilisateur, jeu réel avec
+ficelle : chaque joueur trace un triangle, tire 3 flèches à
+l'intérieur, redéfinit son triangle avec ses impacts si toutes dedans,
+recommence jusqu'à sortir) : déclare `modesParticipant: ["individuel"]`
+seulement (pas d'équipe, "chaque joueur a son triangle") et
+`configParticipant: null` (3 flèches est une constante du jeu, pas un
+réglage). `modeSaisie: "score-chacun-son-tour"` -- chaque participant
+saisit le nombre de fois où IL a redéfini son triangle avant de sortir
+(l'appli ne simule aucune géométrie). `objectifVictoires: 3` : la
+partie se termine dès qu'un participant a remporté 3 manches, mais le
+classement final se fait au score total cumulé sur toutes les manches
+jouées (pas au nombre de victoires) -- deux compteurs séparés dans le
+même `etat` (`points` et `victoires`).
 
 **Stockage** (`storage.js`, IndexedDB) : deux stores seulement,
 `joueurs` (mémorisés d'une partie à l'autre pour l'autocomplete) et
@@ -201,6 +249,23 @@ détaché (`nohup ... & disown`, pas `run_in_background` du harness qui
 peut se faire couper par un reset de session) et être patient plutôt
 que de multiplier les tentatives -- les process Chromium tournaient
 réellement, juste très lentement.
+
+**Triangle (2e jeu)** : logique vérifiée en Node (`appliquerManche`/
+`estTerminee`/`classement`, égalité de score = plusieurs vainqueurs de
+manche crédités, fin de partie exactement à la 3e victoire, classement
+final par score cumulé). Vérification navigateur réelle partielle --
+l'environnement local a rencontré ce jour-là des resets répétés qui ont
+vidé le répertoire de scratch en plein test Selenium (pas un problème
+de charge cette fois, un vrai reset d'environnement). Confirmé malgré
+tout en réel avant l'interruption : les deux jeux listés sur l'accueil,
+écran de choix de mode correctement sauté (un seul `modesParticipant`),
+champ "flèches" correctement masqué (`configParticipant: null`), 3
+joueurs ajoutés sans réglage superflu, ligne d'objectif "3 manches
+gagnées", saisie tour par tour fonctionnelle, classement mis à jour
+après la 1ère manche (`Julie 5 · 1/3`). L'écran de fin lui-même
+réutilise `terminerPartie()`/`rendreFin()`, du code déjà vérifié en
+réel avec Pétanque -- pas re-testé isolément pour Triangle, risque jugé
+faible vu qu'aucun changement n'y a été apporté pour ce jeu.
 
 ## Piège rencontré : CACHE_NAME de sw.js pas rebumpé après coup (2026-08-24)
 

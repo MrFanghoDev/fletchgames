@@ -3,11 +3,19 @@
  * pas de routage, juste des <section> qu'on montre/masque (voir
  * jouer.html, .ecran[hidden]).
  *
- * "vainqueur-plus-valeur" est le seul modeSaisie câblé ici pour
- * l'instant (le seul que Pétanque utilise) -- les autres modes prévus
- * au contrat du moteur (clavier, boutons) seront ajoutés quand un jeu
- * les utilisera réellement, pas avant (voir CLAUDE.md, principe
- * "pas de code pour un besoin hypothétique").
+ * Deux modeSaisie câblés ici :
+ * - "vainqueur-plus-valeur" (Pétanque) : on désigne le vainqueur de la
+ *   manche, puis sa valeur parmi jeu.valeursPossibles(participant).
+ *   Les autres participants ne saisissent rien pour cette manche.
+ * - "score-chacun-son-tour" (Triangle) : CHAQUE participant saisit son
+ *   propre score à tour de rôle (nombre libre, pas de plage prédéfinie
+ *   -- jeu.valeursPossibles n'est pas utilisé dans ce mode). Une fois
+ *   tous les scores connus, le(s) participant(s) au score le plus haut
+ *   remportent la manche (appliquerManche reçoit saisie.gagnant).
+ * D'autres modes prévus au contrat du moteur (clavier fixe, boutons
+ * fixes) seront ajoutés quand un jeu les utilisera réellement, pas
+ * avant (voir CLAUDE.md, principe "pas de code pour un besoin
+ * hypothétique").
  *
  * Individuel vs équipe (jeu.modesParticipant) -- un participant a
  * TOUJOURS la même forme côté moteur ({id, nom, joueurs:[...]}), que le
@@ -34,6 +42,11 @@ let etatsParParticipant = {};
 let manches = [];
 let vainqueurManche = null;
 let classementFinal = null;
+
+// "score-chacun-son-tour" (voir plus haut) -- état de la manche en
+// cours de saisie : chaque participant répond l'un après l'autre.
+let indexScoreCourant = 0;
+let scoresMancheEnCours = {};
 
 function nomJeu() {
   return jeu.nom[currentLanguage] || jeu.nom.fr;
@@ -98,6 +111,14 @@ function rendreSetup() {
   document.getElementById("panel-nouveau-joueur").hidden = enEquipe;
   document.getElementById("equipe-suivante").hidden = !enEquipe;
 
+  // Le champ "flèches" (configParticipant) n'a de sens que pour les jeux
+  // qui le déclarent (Pétanque) -- masqué entièrement pour les autres
+  // (Triangle : configParticipant est null, chaque joueur n'a besoin
+  // que de son nom). Voir moteur/jeux/<jeu>.js.
+  const aConfigParticipant = !!jeu.configParticipant;
+  document.getElementById("champ-fleches-coequipier-conteneur").hidden = !aConfigParticipant;
+  document.getElementById("champ-fleches-joueur-conteneur").hidden = !aConfigParticipant;
+
   const liste = document.getElementById("equipes-liste");
   liste.innerHTML = "";
   for (const equipe of equipes) {
@@ -111,11 +132,11 @@ function rendreSetup() {
         const ligne = document.createElement("div");
         ligne.className = "coequipier-ligne";
         const span = document.createElement("span");
-        span.textContent = `${joueur.nom} (${joueur.fleches})`;
+        span.textContent = aConfigParticipant ? `${joueur.nom} (${joueur.fleches})` : joueur.nom;
         ligne.appendChild(span);
         carte.appendChild(ligne);
       }
-    } else {
+    } else if (aConfigParticipant) {
       const sousTitre = document.createElement("div");
       sousTitre.className = "coequipier-ligne";
       const span = document.createElement("span");
@@ -146,7 +167,7 @@ function rendreSetup() {
       const ligne = document.createElement("div");
       ligne.className = "coequipier-ligne";
       const span = document.createElement("span");
-      span.textContent = `${joueur.nom} (${joueur.fleches})`;
+      span.textContent = jeu.configParticipant ? `${joueur.nom} (${joueur.fleches})` : joueur.nom;
       ligne.appendChild(span);
       const retirer = document.createElement("button");
       retirer.type = "button";
@@ -192,20 +213,27 @@ function creerEquipe() {
   rendreSetup();
 }
 
+function lireFleches(champFleches) {
+  const cfg = jeu.configParticipant;
+  if (!cfg) return undefined;
+  let fleches = parseInt(champFleches.value, 10);
+  if (Number.isNaN(fleches)) fleches = cfg.defaut;
+  return Math.min(cfg.max, Math.max(cfg.min, fleches));
+}
+
 async function ajouterCoequipier() {
   const champNom = document.getElementById("champ-nom-coequipier");
   const champFleches = document.getElementById("champ-fleches-coequipier");
   const nom = champNom.value.trim();
   if (!nom || !equipeEnCours) return;
-  const cfg = jeu.configParticipant;
-  let fleches = parseInt(champFleches.value, 10);
-  if (Number.isNaN(fleches)) fleches = cfg ? cfg.defaut : 3;
-  if (cfg) fleches = Math.min(cfg.max, Math.max(cfg.min, fleches));
+  const fleches = lireFleches(champFleches);
 
   const joueur = await resoudreJoueur(nom);
-  equipeEnCours.joueurs.push({ id: joueur.id, nom: joueur.nom, fleches });
+  const membre = { id: joueur.id, nom: joueur.nom };
+  if (fleches !== undefined) membre.fleches = fleches;
+  equipeEnCours.joueurs.push(membre);
   champNom.value = "";
-  champFleches.value = String(cfg ? cfg.defaut : 3);
+  if (jeu.configParticipant) champFleches.value = String(jeu.configParticipant.defaut);
   rendreSetup();
 }
 
@@ -214,15 +242,14 @@ async function ajouterJoueurIndividuel() {
   const champFleches = document.getElementById("champ-fleches-joueur");
   const nom = champNom.value.trim();
   if (!nom) return;
-  const cfg = jeu.configParticipant;
-  let fleches = parseInt(champFleches.value, 10);
-  if (Number.isNaN(fleches)) fleches = cfg ? cfg.defaut : 3;
-  if (cfg) fleches = Math.min(cfg.max, Math.max(cfg.min, fleches));
+  const fleches = lireFleches(champFleches);
 
   const joueur = await resoudreJoueur(nom);
-  equipes.push({ id: crypto.randomUUID(), nom: joueur.nom, joueurs: [{ id: joueur.id, nom: joueur.nom, fleches }] });
+  const membre = { id: joueur.id, nom: joueur.nom };
+  if (fleches !== undefined) membre.fleches = fleches;
+  equipes.push({ id: crypto.randomUUID(), nom: joueur.nom, joueurs: [membre] });
   champNom.value = "";
-  champFleches.value = String(cfg ? cfg.defaut : 3);
+  if (jeu.configParticipant) champFleches.value = String(jeu.configParticipant.defaut);
   rendreSetup();
 }
 
@@ -254,6 +281,8 @@ function commencerPartie() {
     etatsParParticipant[equipe.id] = jeu.etatInitial();
   }
   manches = [];
+  indexScoreCourant = 0;
+  scoresMancheEnCours = {};
   etape = "jeu";
   afficherEcran("ecran-jeu");
   rendreJeu();
@@ -263,14 +292,25 @@ function commencerPartie() {
 
 function classementCourant() {
   return equipes
-    .map((e) => ({ id: e.id, nom: e.nom, points: (etatsParParticipant[e.id] || { points: 0 }).points }))
+    .map((e) => {
+      const etat = etatsParParticipant[e.id] || {};
+      return { id: e.id, nom: e.nom, points: etat.points || 0, victoires: etat.victoires };
+    })
     .sort((a, b) => b.points - a.points);
 }
 
-function rendreJeu() {
-  document.getElementById("jeu-objectif").textContent =
-    jeu.objectifPoints !== undefined ? `${t(currentLanguage, "jeuObjectif")} ${jeu.objectifPoints} ${t(currentLanguage, "jeuPoints")}` : "";
+function rendreObjectif() {
+  const objectif = document.getElementById("jeu-objectif");
+  if (jeu.objectifPoints !== undefined) {
+    objectif.textContent = `${t(currentLanguage, "jeuObjectif")} ${jeu.objectifPoints} ${t(currentLanguage, "jeuPoints")}`;
+  } else if (jeu.objectifVictoires !== undefined) {
+    objectif.textContent = `${t(currentLanguage, "jeuObjectif")} ${jeu.objectifVictoires} ${t(currentLanguage, "jeuManchesGagnees")}`;
+  } else {
+    objectif.textContent = "";
+  }
+}
 
+function rendreClassementJeu() {
   const classementDiv = document.getElementById("classement-jeu");
   classementDiv.innerHTML = "";
   for (const entree of classementCourant()) {
@@ -283,39 +323,56 @@ function rendreJeu() {
     points.className = "points";
     points.textContent = String(entree.points);
     ligne.append(nom, points);
+    if (jeu.objectifVictoires !== undefined && entree.victoires !== undefined) {
+      const victoires = document.createElement("span");
+      victoires.className = "victoires";
+      victoires.textContent = `${entree.victoires}/${jeu.objectifVictoires}`;
+      ligne.appendChild(victoires);
+    }
     classementDiv.appendChild(ligne);
   }
+}
 
-  document.getElementById("jeu-saisie-vainqueur").hidden = !!vainqueurManche;
-  document.getElementById("jeu-saisie-valeur").hidden = !vainqueurManche;
+function rendreJeu() {
+  rendreObjectif();
+  rendreClassementJeu();
 
-  if (!vainqueurManche) {
-    const boutons = document.getElementById("equipe-boutons");
-    boutons.innerHTML = "";
-    for (const equipe of equipes) {
-      const bouton = document.createElement("button");
-      bouton.type = "button";
-      bouton.className = "equipe-bouton";
-      bouton.textContent = equipe.nom;
-      bouton.addEventListener("click", () => {
-        vainqueurManche = equipe;
-        rendreJeu();
-      });
-      boutons.appendChild(bouton);
+  const enVainqueurPlusValeur = jeu.modeSaisie === "vainqueur-plus-valeur";
+  document.getElementById("jeu-saisie-vainqueur").hidden = !enVainqueurPlusValeur || !!vainqueurManche;
+  document.getElementById("jeu-saisie-valeur").hidden = !enVainqueurPlusValeur || !vainqueurManche;
+  document.getElementById("jeu-saisie-score-chacun").hidden = jeu.modeSaisie !== "score-chacun-son-tour";
+
+  if (enVainqueurPlusValeur) {
+    if (!vainqueurManche) {
+      const boutons = document.getElementById("equipe-boutons");
+      boutons.innerHTML = "";
+      for (const equipe of equipes) {
+        const bouton = document.createElement("button");
+        bouton.type = "button";
+        bouton.className = "equipe-bouton";
+        bouton.textContent = equipe.nom;
+        bouton.addEventListener("click", () => {
+          vainqueurManche = equipe;
+          rendreJeu();
+        });
+        boutons.appendChild(bouton);
+      }
+    } else {
+      document.getElementById("valeur-titre").textContent = `${vainqueurManche.nom} — ${t(currentLanguage, "jeuCombienPoints")}`;
+      const grille = document.getElementById("valeurs-grille");
+      grille.innerHTML = "";
+      const valeurs = jeu.valeursPossibles(vainqueurManche);
+      for (const valeur of valeurs) {
+        const bouton = document.createElement("button");
+        bouton.type = "button";
+        bouton.className = "valeur-bouton";
+        bouton.textContent = String(valeur);
+        bouton.addEventListener("click", () => enregistrerManche(valeur));
+        grille.appendChild(bouton);
+      }
     }
-  } else {
-    document.getElementById("valeur-titre").textContent = `${vainqueurManche.nom} — ${t(currentLanguage, "jeuCombienPoints")}`;
-    const grille = document.getElementById("valeurs-grille");
-    grille.innerHTML = "";
-    const valeurs = jeu.valeursPossibles(vainqueurManche);
-    for (const valeur of valeurs) {
-      const bouton = document.createElement("button");
-      bouton.type = "button";
-      bouton.className = "valeur-bouton";
-      bouton.textContent = String(valeur);
-      bouton.addEventListener("click", () => enregistrerManche(valeur));
-      grille.appendChild(bouton);
-    }
+  } else if (jeu.modeSaisie === "score-chacun-son-tour") {
+    rendreScoreChacun();
   }
 }
 
@@ -332,12 +389,56 @@ function enregistrerManche(points) {
   }
 }
 
+// ---- modeSaisie "score-chacun-son-tour" ---------------------------------
+// Chaque participant, à tour de rôle, saisit un score libre (pas de
+// plage prédéfinie -- valeursPossibles n'existe pas pour ce mode).
+// Une fois tout le monde passé, le(s) meilleur(s) score(s) de la
+// manche remportent une victoire (saisie.gagnant, voir le contrat du
+// jeu -- ex. moteur/jeux/triangle.js).
+
+function rendreScoreChacun() {
+  const participant = equipes[indexScoreCourant];
+  document.getElementById("score-chacun-titre").textContent = `${participant.nom} — ${t(currentLanguage, "jeuQuelScore")}`;
+  document.getElementById("champ-score-chacun").value = "0";
+}
+
+function enregistrerScoreChacun() {
+  const participant = equipes[indexScoreCourant];
+  const champ = document.getElementById("champ-score-chacun");
+  let valeur = parseInt(champ.value, 10);
+  if (Number.isNaN(valeur) || valeur < 0) valeur = 0;
+  scoresMancheEnCours[participant.id] = valeur;
+
+  indexScoreCourant += 1;
+  if (indexScoreCourant < equipes.length) {
+    rendreScoreChacun();
+    return;
+  }
+
+  const meilleur = Math.max(...Object.values(scoresMancheEnCours));
+  for (const equipe of equipes) {
+    const points = scoresMancheEnCours[equipe.id];
+    const gagnant = points === meilleur;
+    manches.push({ participantId: equipe.id, points, gagnant });
+    etatsParParticipant[equipe.id] = jeu.appliquerManche(etatsParParticipant[equipe.id], { points, gagnant });
+  }
+
+  indexScoreCourant = 0;
+  scoresMancheEnCours = {};
+
+  if (jeu.estTerminee(etatsParParticipant)) {
+    terminerPartie();
+  } else {
+    rendreJeu();
+  }
+}
+
 async function terminerPartie() {
   const participants = equipes.map((e) => ({
     id: e.id,
     type: modeParticipant === "equipe" ? "equipe" : "joueur",
     nom: e.nom,
-    joueurs: e.joueurs.map((j) => ({ id: j.id, nom: j.nom, fleches: j.fleches })),
+    joueurs: e.joueurs.map((j) => (j.fleches !== undefined ? { id: j.id, nom: j.nom, fleches: j.fleches } : { id: j.id, nom: j.nom })),
   }));
   classementFinal = jeu.classement(participants, etatsParParticipant);
   await enregistrerPartie({ jeuId: jeu.id, participants, manches, classement: classementFinal });
@@ -384,6 +485,8 @@ function reinitialiserPourNouvellePartie() {
   manches = [];
   vainqueurManche = null;
   classementFinal = null;
+  indexScoreCourant = 0;
+  scoresMancheEnCours = {};
   etape = "setup";
   document.getElementById("champ-nom-equipe").value = "";
   afficherEcran("ecran-setup");
@@ -468,6 +571,7 @@ async function init() {
     vainqueurManche = null;
     rendreJeu();
   });
+  document.getElementById("score-chacun-valider").addEventListener("click", enregistrerScoreChacun);
   document.getElementById("fin-accueil").addEventListener("click", () => {
     location.href = "index.html";
   });

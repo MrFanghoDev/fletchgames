@@ -4,8 +4,9 @@
  * index.html/jouer.js, qui lisent tous les deux ce registre.
  */
 import { petanque } from "./petanque.js";
+import { triangle } from "./triangle.js";
 
-export const JEUX = { petanque };
+export const JEUX = { petanque, triangle };
 
 export function listerJeux() {
   return Object.values(JEUX);
