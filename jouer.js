@@ -12,6 +12,11 @@
  *   -- jeu.valeursPossibles n'est pas utilisé dans ce mode). Une fois
  *   tous les scores connus, le(s) participant(s) au score le plus haut
  *   remportent la manche (appliquerManche reçoit saisie.gagnant).
+ * - "perdant-de-la-manche" (Killer) : on désigne le(s) PERDANT(S) de la
+ *   manche parmi les participants encore en vie (sélection multiple,
+ *   boutons à bascule -- égalité possible), pas un vainqueur. Chaque
+ *   participant encore en vie reçoit appliquerManche(etat,
+ *   {perdant, numeroManche}), qu'il soit désigné ou non.
  * D'autres modes prévus au contrat du moteur (clavier fixe, boutons
  * fixes) seront ajoutés quand un jeu les utilisera réellement, pas
  * avant (voir CLAUDE.md, principe "pas de code pour un besoin
@@ -47,6 +52,12 @@ let classementFinal = null;
 // cours de saisie : chaque participant répond l'un après l'autre.
 let indexScoreCourant = 0;
 let scoresMancheEnCours = {};
+
+// "perdant-de-la-manche" (voir plus haut) -- numéro de la manche en
+// cours (utilisé par killer.js pour dater le score d'un participant),
+// et sélection en cours (ids des participants désignés perdants).
+let numeroManche = 1;
+let perdantsSelectionnes = new Set();
 
 function nomJeu() {
   return jeu.nom[currentLanguage] || jeu.nom.fr;
@@ -283,6 +294,8 @@ function commencerPartie() {
   manches = [];
   indexScoreCourant = 0;
   scoresMancheEnCours = {};
+  numeroManche = 1;
+  perdantsSelectionnes = new Set();
   etape = "jeu";
   afficherEcran("ecran-jeu");
   rendreJeu();
@@ -294,7 +307,7 @@ function classementCourant() {
   return equipes
     .map((e) => {
       const etat = etatsParParticipant[e.id] || {};
-      return { id: e.id, nom: e.nom, points: etat.points || 0, victoires: etat.victoires };
+      return { id: e.id, nom: e.nom, points: etat.points || 0, victoires: etat.victoires, vies: etat.vies };
     })
     .sort((a, b) => b.points - a.points);
 }
@@ -305,6 +318,8 @@ function rendreObjectif() {
     objectif.textContent = `${t(currentLanguage, "jeuObjectif")} ${jeu.objectifPoints} ${t(currentLanguage, "jeuPoints")}`;
   } else if (jeu.objectifVictoires !== undefined) {
     objectif.textContent = `${t(currentLanguage, "jeuObjectif")} ${jeu.objectifVictoires} ${t(currentLanguage, "jeuManchesGagnees")}`;
+  } else if (jeu.viesDepart !== undefined) {
+    objectif.textContent = `${t(currentLanguage, "jeuViesDepart")} ${jeu.viesDepart}`;
   } else {
     objectif.textContent = "";
   }
@@ -316,13 +331,22 @@ function rendreClassementJeu() {
   for (const entree of classementCourant()) {
     const ligne = document.createElement("div");
     ligne.className = "classement-ligne";
+    if (jeu.afficheVies && entree.vies <= 0) ligne.classList.add("elimine");
     const nom = document.createElement("span");
     nom.className = "nom";
     nom.textContent = entree.nom;
-    const points = document.createElement("span");
-    points.className = "points";
-    points.textContent = String(entree.points);
-    ligne.append(nom, points);
+    ligne.appendChild(nom);
+    if (jeu.afficheVies && entree.vies !== undefined) {
+      const vies = document.createElement("span");
+      vies.className = "vies";
+      vies.textContent = `${entree.vies} ${t(currentLanguage, "jeuVies")}`;
+      ligne.appendChild(vies);
+    } else {
+      const points = document.createElement("span");
+      points.className = "points";
+      points.textContent = String(entree.points);
+      ligne.appendChild(points);
+    }
     if (jeu.objectifVictoires !== undefined && entree.victoires !== undefined) {
       const victoires = document.createElement("span");
       victoires.className = "victoires";
@@ -341,6 +365,7 @@ function rendreJeu() {
   document.getElementById("jeu-saisie-vainqueur").hidden = !enVainqueurPlusValeur || !!vainqueurManche;
   document.getElementById("jeu-saisie-valeur").hidden = !enVainqueurPlusValeur || !vainqueurManche;
   document.getElementById("jeu-saisie-score-chacun").hidden = jeu.modeSaisie !== "score-chacun-son-tour";
+  document.getElementById("jeu-saisie-perdant").hidden = jeu.modeSaisie !== "perdant-de-la-manche";
 
   if (enVainqueurPlusValeur) {
     if (!vainqueurManche) {
@@ -373,7 +398,13 @@ function rendreJeu() {
     }
   } else if (jeu.modeSaisie === "score-chacun-son-tour") {
     rendreScoreChacun();
+  } else if (jeu.modeSaisie === "perdant-de-la-manche") {
+    rendrePerdant();
   }
+}
+
+function participantsEnVie() {
+  return equipes.filter((e) => (etatsParParticipant[e.id] || {}).vies > 0);
 }
 
 function enregistrerManche(points) {
@@ -425,6 +456,52 @@ function enregistrerScoreChacun() {
 
   indexScoreCourant = 0;
   scoresMancheEnCours = {};
+
+  if (jeu.estTerminee(etatsParParticipant)) {
+    terminerPartie();
+  } else {
+    rendreJeu();
+  }
+}
+
+// ---- modeSaisie "perdant-de-la-manche" ----------------------------------
+// On désigne le(s) perdant(s) de la manche parmi les participants
+// encore en vie (sélection multiple, boutons à bascule) -- voir
+// moteur/jeux/killer.js. Contrairement à "vainqueur-plus-valeur", rien
+// n'est enregistré tant que "Valider" n'a pas été touché.
+
+function rendrePerdant() {
+  const boutons = document.getElementById("perdant-boutons");
+  boutons.innerHTML = "";
+  for (const participant of participantsEnVie()) {
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "equipe-bouton";
+    bouton.classList.toggle("selectionne", perdantsSelectionnes.has(participant.id));
+    bouton.textContent = participant.nom;
+    bouton.addEventListener("click", () => {
+      if (perdantsSelectionnes.has(participant.id)) perdantsSelectionnes.delete(participant.id);
+      else perdantsSelectionnes.add(participant.id);
+      rendrePerdant();
+    });
+    boutons.appendChild(bouton);
+  }
+}
+
+function validerPerdants() {
+  if (perdantsSelectionnes.size === 0) return;
+
+  for (const participant of participantsEnVie()) {
+    const perdant = perdantsSelectionnes.has(participant.id);
+    manches.push({ participantId: participant.id, perdant });
+    etatsParParticipant[participant.id] = jeu.appliquerManche(etatsParParticipant[participant.id], {
+      perdant,
+      numeroManche,
+    });
+  }
+
+  numeroManche += 1;
+  perdantsSelectionnes = new Set();
 
   if (jeu.estTerminee(etatsParParticipant)) {
     terminerPartie();
@@ -487,6 +564,8 @@ function reinitialiserPourNouvellePartie() {
   classementFinal = null;
   indexScoreCourant = 0;
   scoresMancheEnCours = {};
+  numeroManche = 1;
+  perdantsSelectionnes = new Set();
   etape = "setup";
   document.getElementById("champ-nom-equipe").value = "";
   afficherEcran("ecran-setup");
@@ -572,6 +651,7 @@ async function init() {
     rendreJeu();
   });
   document.getElementById("score-chacun-valider").addEventListener("click", enregistrerScoreChacun);
+  document.getElementById("perdant-valider").addEventListener("click", validerPerdants);
   document.getElementById("fin-accueil").addEventListener("click", () => {
     location.href = "index.html";
   });

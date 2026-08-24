@@ -5,8 +5,9 @@
  */
 import { petanque } from "./petanque.js";
 import { triangle } from "./triangle.js";
+import { killer } from "./killer.js";
 
-export const JEUX = { petanque, triangle };
+export const JEUX = { petanque, triangle, killer };
 
 export function listerJeux() {
   return Object.values(JEUX);

@@ -68,6 +68,7 @@ const TRANSLATIONS = {
     setupSupprimerJoueur: "Retirer",
 
     jeuQuiGagneManche: "Qui a gagné cette manche ?",
+    jeuQuiPerdManche: "Qui a le moins bien tiré ?",
     jeuCombienPoints: "Combien de points ?",
     jeuQuelScore: "Quel score ?",
     jeuValider: "Valider",
@@ -75,6 +76,8 @@ const TRANSLATIONS = {
     jeuObjectif: "Objectif :",
     jeuPoints: "pts",
     jeuManchesGagnees: "manches gagnées",
+    jeuViesDepart: "Vies de départ :",
+    jeuVies: "vies",
 
     finTitre: "Partie terminée !",
     finVainqueur: "remporte la partie.",
@@ -166,6 +169,7 @@ const TRANSLATIONS = {
     setupSupprimerJoueur: "Remove",
 
     jeuQuiGagneManche: "Which team won this round?",
+    jeuQuiPerdManche: "Who shot worst?",
     jeuCombienPoints: "How many points?",
     jeuQuelScore: "What's the score?",
     jeuValider: "Confirm",
@@ -173,6 +177,8 @@ const TRANSLATIONS = {
     jeuObjectif: "Target:",
     jeuPoints: "pts",
     jeuManchesGagnees: "round wins",
+    jeuViesDepart: "Starting lives:",
+    jeuVies: "lives",
 
     finTitre: "Game over!",
     finVainqueur: "wins the game.",

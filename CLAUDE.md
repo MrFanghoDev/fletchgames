@@ -54,7 +54,7 @@ Discuté dans fletchapps#3 avant tout code.
   l'environnement `github-pages`, et déploiement silencieusement
   ignoré sur un SHA déjà publié).
 
-## Moteur de jeu (implémenté le 2026-08-24, Pétanque puis Triangle)
+## Moteur de jeu (implémenté le 2026-08-24, Pétanque, Triangle, Killer)
 
 Contrat d'un module `moteur/jeux/<jeu>.js` (voir `petanque.js` pour
 l'exemple complet) :
@@ -65,9 +65,11 @@ l'exemple complet) :
   variantes: {fr: [...], en: [...]} | undefined,  // optionnel, règles facultatives (voir plus bas)
   modesParticipant: ["individuel", "equipe"],   // au moins un des deux, ordre = ordre d'affichage
   configParticipant: { champ, label: {fr, en}, min, max, defaut } | null,
-  modeSaisie: "vainqueur-plus-valeur" | "score-chacun-son-tour" | ...,
+  modeSaisie: "vainqueur-plus-valeur" | "score-chacun-son-tour" | "perdant-de-la-manche" | ...,
   objectifPoints,       // optionnel -- fin de partie par seuil de points (Pétanque)
   objectifVictoires,    // optionnel -- fin de partie par nombre de manches gagnées (Triangle)
+  viesDepart,           // optionnel -- fin de partie quand il ne reste qu'un survivant (Killer)
+  afficheVies,          // optionnel -- true : classement affiche les vies plutôt que les points (Killer)
   valeursPossibles(participant) -> number[],    // requis seulement pour "vainqueur-plus-valeur"
   etatInitial() -> etat,
   appliquerManche(etat, saisie) -> etat,
@@ -92,6 +94,20 @@ Deux `modeSaisie` câblés dans `jouer.js` pour l'instant :
   Triangle de suivre à la fois un score cumulé (`points`, somme des
   manches) et un compteur de victoires (`victoires`, pour
   `objectifVictoires`) dans le même `etat`.
+
+- **"perdant-de-la-manche"** (Killer, ajouté le 2026-08-25) : on
+  désigne le(s) PERDANT(S) de la manche (sélection multiple par
+  boutons à bascule, égalité possible) parmi les participants encore
+  en vie -- pas de vainqueur ni de valeur numérique. Une fois
+  "Valider" touché, `jouer.js` appelle `appliquerManche(etat,
+  {perdant, numeroManche})` pour chaque participant encore en vie
+  (`numeroManche` = compteur de manches tenu par jouer.js, incrémenté
+  à chaque validation). Les participants déjà éliminés
+  (`etat.vies <= 0`) ne sont ni affichés dans la liste de sélection ni
+  retouchés -- leurs `points`/`vies` restent gelés à leur valeur au
+  moment de l'élimination, ce qui donne gratuitement le bon ordre de
+  classement final (voir Killer ci-dessous) sans champ dédié
+  "ordre d'élimination".
 
 D'autres valeurs de `modeSaisie` prévues au contrat (clavier fixe,
 boutons fixes) seront ajoutées quand un jeu les utilisera réellement,
@@ -150,6 +166,23 @@ partie se termine dès qu'un participant a remporté 3 manches, mais le
 classement final se fait au score total cumulé sur toutes les manches
 jouées (pas au nombre de victoires) -- deux compteurs séparés dans le
 même `etat` (`points` et `victoires`).
+
+**Killer** (3e jeu, 2026-08-25 -- élimination progressive) : déclare
+`modesParticipant: ["individuel"]` seulement (chacun ses vies, pas
+d'équipe) et `configParticipant: null` (le nombre de vies de départ,
+`viesDepart: 3`, est une constante du jeu, pas un réglage -- même
+principe que `objectifPoints`/`objectifVictoires`). `modeSaisie:
+"perdant-de-la-manche"` (voir plus haut). `estTerminee` : il ne reste
+qu'un seul participant avec `vies > 0`. `points` (utilisé pour trier
+le classement final) n'est PAS un score au sens propre : c'est le
+numéro de la dernière manche à laquelle ce participant a activement
+participé (encore en vie) -- suffit à ordonner correctement (éliminé
+plus tard = mieux classé, survivant final = numéro de manche le plus
+élevé) en réutilisant tel quel le tri par points déjà en place pour
+Pétanque/Triangle. `afficheVies: true` fait afficher le nombre de vies
+restantes dans le classement en cours de partie (au lieu des points,
+peu parlants pour ce jeu) et estompe visuellement (`.elimine`) les
+participants à 0 vie plutôt que de les retirer de la liste.
 
 **Stockage** (`storage.js`, IndexedDB) : deux stores seulement,
 `joueurs` (mémorisés d'une partie à l'autre pour l'autocomplete) et
@@ -266,6 +299,28 @@ après la 1ère manche (`Julie 5 · 1/3`). L'écran de fin lui-même
 réutilise `terminerPartie()`/`rendreFin()`, du code déjà vérifié en
 réel avec Pétanque -- pas re-testé isolément pour Triangle, risque jugé
 faible vu qu'aucun changement n'y a été apporté pour ce jeu.
+
+**Killer (3e jeu, 2026-08-25)** : logique vérifiée en Node avec un
+scénario à 4 joueurs et une égalité (2 perdants la même manche) --
+cascade d'élimination correcte, `points`/`vies` gelés dès l'élimination
+(jamais retouchés aux manches suivantes), `estTerminee` correcte à
+chaque étape (y compris le palier à 2 survivants, qui ne doit PAS
+terminer la partie), classement final dans le bon ordre. Vérification
+statique (ids, clés i18n) propre. Vérification navigateur réelle très
+limitée ce jour-là : l'environnement local a enchaîné plusieurs resets
+qui ont vidé le scratch en quelques secondes à chaque nouvelle
+tentative de test interactif complet (setup → éliminations → fin) --
+après plusieurs relances infructueuses, une vérification allégée
+(chargement de `jouer.html?jeu=killer` seul, sans interaction) a quand
+même confirmé un chargement propre : titre correct, 5 règles rendues,
+aucune erreur console. Le reste du flux (sélection multiple des
+perdants, `.selectionne`, disparition des éliminés de la liste, écran
+de fin) réutilise très directement des mécanismes déjà vérifiés en
+réel sur Pétanque/Triangle (boutons à bascule sur le même patron que
+`.equipe-bouton`, `terminerPartie()`/`rendreFin()` inchangés) -- risque
+résiduel jugé faible, mais **à re-vérifier en réel dès qu'une session
+future a un environnement plus stable**, avant de considérer Killer
+aussi solidement testé que les deux premiers jeux.
 
 ## Piège rencontré : CACHE_NAME de sw.js pas rebumpé après coup (2026-08-24)
 

@@ -3,7 +3,7 @@
 // chargement. Même patron que fletchlog/sw.js, sans le cache de
 // tuiles OSM (pas de carte ici).
 
-const CACHE_NAME = "fletchgames-shell-v5";
+const CACHE_NAME = "fletchgames-shell-v6";
 const FICHIERS_A_METTRE_EN_CACHE = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const FICHIERS_A_METTRE_EN_CACHE = [
   "./moteur/jeux/index.js",
   "./moteur/jeux/petanque.js",
   "./moteur/jeux/triangle.js",
+  "./moteur/jeux/killer.js",
   "./manifest.json",
   "./icon.svg",
   "./icon-192.png",

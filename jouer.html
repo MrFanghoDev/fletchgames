@@ -74,6 +74,12 @@
   .classement-ligne .nom { font-weight: 600; }
   .classement-ligne .points { font-variant-numeric: tabular-nums; font-size: 1.15rem; color: var(--gold); font-weight: 700; }
   .classement-ligne .victoires { font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--text-faint); margin-left: 6px; }
+  .classement-ligne .vies { font-variant-numeric: tabular-nums; font-size: 1.15rem; color: var(--gold); font-weight: 700; }
+  /* Killer -- un participant éliminé (0 vie) reste affiché dans le
+     classement (historique de la manche où il est sorti), mais
+     visuellement estompé plutôt que retiré -- retirer la ligne aurait
+     fait "sauter" la mise en page à chaque élimination. */
+  .classement-ligne.elimine { opacity: 0.45; }
 
   .saisie-titre { font-size: 0.95rem; color: var(--text-muted); margin: 0 0 0.7rem; text-align: center; }
   .equipe-boutons { display: flex; flex-direction: column; gap: 8px; }
@@ -92,6 +98,12 @@
   .score-chacun-form { display: flex; gap: 8px; }
   .score-chacun-form input { flex: 1; font-family: var(--font-mono); font-size: 1.3rem; text-align: center; }
   .score-chacun-form button { flex: 0 0 auto; }
+
+  /* Killer -- boutons à bascule (sélection multiple), contrairement à
+     .equipe-bouton "Qui a gagné ?" (un seul clic = manche enregistrée
+     immédiatement). Réutilise .equipe-bouton comme base visuelle. */
+  .equipe-bouton.selectionne { border-color: var(--red); background: color-mix(in srgb, var(--red) 14%, var(--surface)); }
+  .perdant-valider { margin-top: 0.9rem; width: 100%; }
 
   .fin-classement { display: flex; flex-direction: column; gap: 8px; margin: 1.2rem 0; }
   .fin-ligne { display: flex; align-items: center; gap: 10px; padding: 0.6rem 0.9rem; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
@@ -240,6 +252,17 @@
           <input type="number" id="champ-score-chacun" min="0" value="0">
           <button type="button" class="btn-primary" id="score-chacun-valider" data-i18n="jeuValider">Valider</button>
         </div>
+      </div>
+
+      <!-- modeSaisie "perdant-de-la-manche" -- on désigne le(s)
+           perdant(s) de la manche (sélection multiple, égalité
+           possible) parmi les participants encore en vie, voir
+           jouer.js. Boutons à bascule (.selectionne), pas un simple
+           clic-qui-avance comme "Qui a gagné ?" ci-dessus. -->
+      <div id="jeu-saisie-perdant" hidden>
+        <p class="saisie-titre" data-i18n="jeuQuiPerdManche">Qui a le moins bien tiré ?</p>
+        <div class="equipe-boutons" id="perdant-boutons"></div>
+        <button type="button" class="btn-primary perdant-valider" id="perdant-valider" data-i18n="jeuValider">Valider</button>
       </div>
     </section>
 
