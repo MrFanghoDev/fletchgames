@@ -362,12 +362,13 @@ function rendreJeu() {
   rendreClassementJeu();
 
   const enVainqueurPlusValeur = jeu.modeSaisie === "vainqueur-plus-valeur";
-  document.getElementById("jeu-saisie-vainqueur").hidden = !enVainqueurPlusValeur || !!vainqueurManche;
+  const enVainqueurSeul = jeu.modeSaisie === "vainqueur-seul";
+  document.getElementById("jeu-saisie-vainqueur").hidden = !(enVainqueurPlusValeur || enVainqueurSeul) || !!vainqueurManche;
   document.getElementById("jeu-saisie-valeur").hidden = !enVainqueurPlusValeur || !vainqueurManche;
   document.getElementById("jeu-saisie-score-chacun").hidden = jeu.modeSaisie !== "score-chacun-son-tour";
   document.getElementById("jeu-saisie-perdant").hidden = jeu.modeSaisie !== "perdant-de-la-manche";
 
-  if (enVainqueurPlusValeur) {
+  if (enVainqueurPlusValeur || enVainqueurSeul) {
     if (!vainqueurManche) {
       const boutons = document.getElementById("equipe-boutons");
       boutons.innerHTML = "";
@@ -377,12 +378,16 @@ function rendreJeu() {
         bouton.className = "equipe-bouton";
         bouton.textContent = equipe.nom;
         bouton.addEventListener("click", () => {
-          vainqueurManche = equipe;
-          rendreJeu();
+          if (enVainqueurSeul) {
+            enregistrerVainqueurSeul(equipe);
+          } else {
+            vainqueurManche = equipe;
+            rendreJeu();
+          }
         });
         boutons.appendChild(bouton);
       }
-    } else {
+    } else if (enVainqueurPlusValeur) {
       document.getElementById("valeur-titre").textContent = `${vainqueurManche.nom} — ${t(currentLanguage, "jeuCombienPoints")}`;
       const grille = document.getElementById("valeurs-grille");
       grille.innerHTML = "";
@@ -412,6 +417,27 @@ function enregistrerManche(points) {
   manches.push({ participantId, points });
   etatsParParticipant[participantId] = jeu.appliquerManche(etatsParParticipant[participantId], { points });
   vainqueurManche = null;
+
+  if (jeu.estTerminee(etatsParParticipant)) {
+    terminerPartie();
+  } else {
+    rendreJeu();
+  }
+}
+
+// ---- modeSaisie "vainqueur-seul" ----------------------------------------
+// Un seul clic enregistre directement la manche (pas d'écran de valeur
+// intermédiaire, contrairement à "vainqueur-plus-valeur") -- TOUS les
+// participants reçoivent appliquerManche (comme "score-chacun-son-tour"),
+// pas seulement le vainqueur, pour laisser le jeu remettre à zéro l'état
+// des autres si besoin (ex. Streak : série des perdants).
+
+function enregistrerVainqueurSeul(vainqueur) {
+  for (const equipe of equipes) {
+    const gagnant = equipe.id === vainqueur.id;
+    manches.push({ participantId: equipe.id, gagnant });
+    etatsParParticipant[equipe.id] = jeu.appliquerManche(etatsParParticipant[equipe.id], { gagnant });
+  }
 
   if (jeu.estTerminee(etatsParParticipant)) {
     terminerPartie();

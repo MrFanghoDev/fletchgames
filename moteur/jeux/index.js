@@ -6,8 +6,10 @@
 import { petanque } from "./petanque.js";
 import { triangle } from "./triangle.js";
 import { killer } from "./killer.js";
+import { bingo } from "./bingo.js";
+import { streak } from "./streak.js";
 
-export const JEUX = { petanque, triangle, killer };
+export const JEUX = { petanque, triangle, killer, bingo, streak };
 
 export function listerJeux() {
   return Object.values(JEUX);

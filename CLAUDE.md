@@ -54,7 +54,7 @@ Discuté dans fletchapps#3 avant tout code.
   l'environnement `github-pages`, et déploiement silencieusement
   ignoré sur un SHA déjà publié).
 
-## Moteur de jeu (implémenté le 2026-08-24, Pétanque, Triangle, Killer)
+## Moteur de jeu (Pétanque/Triangle/Killer le 2026-08-24, Bingo/Streak le 2026-08-25)
 
 Contrat d'un module `moteur/jeux/<jeu>.js` (voir `petanque.js` pour
 l'exemple complet) :
@@ -108,6 +108,25 @@ Deux `modeSaisie` câblés dans `jouer.js` pour l'instant :
   moment de l'élimination, ce qui donne gratuitement le bon ordre de
   classement final (voir Killer ci-dessous) sans champ dédié
   "ordre d'élimination".
+
+- **"vainqueur-seul"** (Streak, ajouté le 2026-08-25) : version allégée
+  de "vainqueur-plus-valeur" -- on désigne le vainqueur de la manche
+  et c'est TOUT, aucun écran de saisie de valeur ensuite (le clic sur
+  le bouton enregistre directement la manche). Comme
+  "score-chacun-son-tour"/"perdant-de-la-manche", TOUS les participants
+  reçoivent `appliquerManche(etat, {gagnant})` (pas seulement le
+  vainqueur) -- nécessaire pour que le jeu puisse retoucher l'état des
+  perdants (ex. Streak remet leur série à zéro). Partage l'écran
+  `#jeu-saisie-vainqueur`/`.equipe-bouton` avec
+  "vainqueur-plus-valeur" (même liste de participants à choisir), seul
+  le clic diffère (`enregistrerVainqueurSeul()` vs `vainqueurManche`
+  puis écran de valeur) -- pas de nouvelle section HTML nécessaire.
+
+Bingo (voir plus bas) réutilise "score-chacun-son-tour" tel quel : même
+mécanique de saisie ("chacun entre un nombre à tour de rôle"), mais
+`saisie.gagnant` (calculé par jouer.js comme "le plus haut score du
+tour") est simplement ignoré côté `bingo.js` -- sans objet pour ce jeu.
+Aucun nouveau `modeSaisie` n'a donc été nécessaire pour Bingo.
 
 D'autres valeurs de `modeSaisie` prévues au contrat (clavier fixe,
 boutons fixes) seront ajoutées quand un jeu les utilisera réellement,
@@ -183,6 +202,36 @@ Pétanque/Triangle. `afficheVies: true` fait afficher le nombre de vies
 restantes dans le classement en cours de partie (au lieu des points,
 peu parlants pour ce jeu) et estompe visuellement (`.elimine`) les
 participants à 0 vie plutôt que de les retirer de la liste.
+
+**Bingo** (5e jeu, 2026-08-25) : `modesParticipant: ["individuel"]`,
+`configParticipant: null`, réutilise `modeSaisie: "score-chacun-son-tour"`
+(voir plus haut). Grille 3x3 fixe (valeurs 1 à 9, même disposition pour
+tout le monde -- seules les valeurs cochées comptent, pas leur
+position). Chaque tour, un participant entre la valeur de sa flèche ;
+si elle est dans la grille et pas déjà cochée, la case correspondante
+se coche. Fin dès qu'un participant complète une ligne (horizontale,
+verticale ou diagonale). **Piège rencontré** (repéré par test réel,
+pas juste supposé) : `etat` ne portait au départ que `cellulesMarquees`/
+`ligneComplete`, sans champ `points` -- le classement AFFICHÉ PENDANT
+LA PARTIE (`classementCourant()` dans jouer.js, qui lit `etat.points`
+directement pour tous les jeux, générique) restait bloqué à 0 tout du
+long, alors que le classement FINAL (calculé séparément par
+`classement()`) était correct. Corrigé en faisant porter
+`points: cellulesMarquees.length` dans `etat` lui-même -- **retenir
+pour tout futur jeu** : `etat` doit toujours exposer un champ `points`
+cohérent avec ce qu'on veut voir progresser en direct, même quand ce
+n'est pas la métrique de tri "naturelle" du jeu.
+
+**Streak** (6e jeu, 2026-08-25) : `modesParticipant: ["individuel",
+"equipe"]` (comme Pétanque), `configParticipant: null`, `modeSaisie:
+"vainqueur-seul"` (voir plus haut). Un point de plus que la série de
+victoires d'affilée en cours (1re victoire = 1 pt, 2e consécutive = 2
+pts, etc.), remise à zéro sur une défaite. Objectif 15 points.
+Démontre que le choix individuel/équipe et `configParticipant: null`
+fonctionnent aussi en combinaison "équipe SANS réglage par
+coéquipier" (jusqu'ici seule Pétanque avait testé le mode équipe, mais
+toujours avec `configParticipant` renseigné) -- confirmé sans code
+supplémentaire nécessaire.
 
 **Stockage** (`storage.js`, IndexedDB) : deux stores seulement,
 `joueurs` (mémorisés d'une partie à l'autre pour l'autocomplete) et
