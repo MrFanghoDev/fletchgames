@@ -94,6 +94,11 @@
     border-radius: 10px; border: none; background: var(--gold); color: #1a1206; cursor: pointer;
   }
   .saisie-annuler { margin-top: 0.9rem; width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  /* .btn-annuler n'avait pas sa propre règle jusqu'ici -- retombait sur
+     le bouton générique de theme.css (fond non défini + texte blanc,
+     peu lisible). Repéré en passant en cherchant le patron
+     bouton destructif/confirmation pour aide.html, corrigé ici. */
+  .btn-annuler { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 
   .score-chacun-form { display: flex; gap: 8px; }
   .score-chacun-form input { flex: 1; font-family: var(--font-mono); font-size: 1.3rem; text-align: center; }

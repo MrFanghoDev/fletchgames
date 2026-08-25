@@ -35,6 +35,23 @@
 
   footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
   footer a { color: var(--text-muted); }
+
+  /* Réinitialisation des données -- action destructive, confirmation
+     obligatoire avant d'exécuter (jamais window.confirm() : son titre
+     imposé par le navigateur affiche l'adresse plutôt que
+     "FletchGames", même piège déjà corrigé chez FletchLog). */
+  .btn-annuler { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-supprimer { background: transparent; color: var(--red); border: 1px solid var(--red); }
+  .reinitialiser-actions { margin-top: 1rem; }
+  .sauvegarde-statut { font-size: 0.85rem; color: var(--green); margin-top: 0.6rem; }
+  .sauvegarde-statut.erreur { color: var(--red); }
+
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .confirm-overlay[hidden] { display: none; }
+  .confirm-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; max-width: 340px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .confirm-box p { margin: 0; font-size: 14px; color: var(--text); line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions button { flex: 1; }
 </style>
 </head>
 <body>
@@ -98,6 +115,10 @@
     <article class="aide-section" id="s3">
       <h2 data-i18n="aideS3Title">Tes données restent sur ton téléphone</h2>
       <p data-i18n="aideS3Text">FletchGames ne dépend d'aucun serveur : les joueurs et l'historique des parties sont stockés localement sur cet appareil, dans ce navigateur -- rien n'est envoyé ni partagé.</p>
+      <div class="reinitialiser-actions">
+        <button type="button" class="btn-supprimer" id="bouton-reinitialiser" data-i18n="aideReinitialiserTitre">Réinitialiser mes données</button>
+      </div>
+      <p class="sauvegarde-statut" id="reinitialiser-statut" hidden></p>
     </article>
 
     <footer>
@@ -108,10 +129,21 @@
     </footer>
   </div>
 
+  <div class="confirm-overlay" id="confirm-overlay" hidden>
+    <div class="confirm-box">
+      <p data-i18n="aideReinitialiserConfirmTexte">Cette action supprime définitivement tous les joueurs mémorisés et tout l'historique des parties, sur cet appareil. Impossible à annuler.</p>
+      <div class="confirm-actions">
+        <button type="button" class="btn-annuler" id="confirm-annuler" data-i18n="aideAnnuler">Annuler</button>
+        <button type="button" class="btn-supprimer" id="confirm-valider" data-i18n="aideReinitialiserConfirmValider">Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+
 <script src="i18n.js"></script>
 <script src="theme.js"></script>
 <script src="sw-register.js"></script>
 <script src="version.js"></script>
+<script src="storage.js"></script>
 <script>
   document.getElementById("footer-version").textContent = FLETCHGAMES_VERSION;
   let currentLanguage = localStorage.getItem("fletchgames_lang") || "fr";
@@ -135,6 +167,31 @@
   }
 
   applyTranslations();
+
+  document.getElementById("bouton-reinitialiser").addEventListener("click", () => {
+    document.getElementById("confirm-overlay").hidden = false;
+  });
+  document.getElementById("confirm-annuler").addEventListener("click", () => {
+    document.getElementById("confirm-overlay").hidden = true;
+  });
+  document.getElementById("confirm-valider").addEventListener("click", () => {
+    reinitialiserDonnees()
+      .then(() => afficherStatutReinitialiser("aideReinitialiserSucces", false))
+      .catch((erreur) => {
+        console.warn("Échec de la réinitialisation :", erreur);
+        afficherStatutReinitialiser("aideReinitialiserErreur", true);
+      })
+      .finally(() => {
+        document.getElementById("confirm-overlay").hidden = true;
+      });
+  });
+
+  function afficherStatutReinitialiser(cle, estErreur) {
+    const statut = document.getElementById("reinitialiser-statut");
+    statut.textContent = t(currentLanguage, cle);
+    statut.classList.toggle("erreur", estErreur);
+    statut.hidden = false;
+  }
 </script>
 </body>
 </html>

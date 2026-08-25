@@ -103,6 +103,12 @@ const TRANSLATIONS = {
     aideS2ScoreText: "À chaque manche, désigne l'équipe qui l'a remportée puis le nombre de points marqués -- l'appli ne mesure rien elle-même, c'est un tableau de score, pas un capteur.",
     aideS3Title: "Tes données restent sur ton téléphone",
     aideS3Text: "FletchGames ne dépend d'aucun serveur : les joueurs et l'historique des parties sont stockés localement sur cet appareil, dans ce navigateur -- rien n'est envoyé ni partagé.",
+    aideReinitialiserTitre: "Réinitialiser mes données",
+    aideReinitialiserConfirmTexte: "Cette action supprime définitivement tous les joueurs mémorisés et tout l'historique des parties, sur cet appareil. Impossible à annuler.",
+    aideReinitialiserConfirmValider: "Réinitialiser",
+    aideAnnuler: "Annuler",
+    aideReinitialiserSucces: "Données réinitialisées.",
+    aideReinitialiserErreur: "Échec de la réinitialisation.",
   },
   en: {
     themeSystemLabel: "System theme",
@@ -204,6 +210,12 @@ const TRANSLATIONS = {
     aideS2ScoreText: "After each round, pick the team that won it, then how many points it scored -- the app doesn't measure anything itself, it's a scoreboard, not a sensor.",
     aideS3Title: "Your data stays on your phone",
     aideS3Text: "FletchGames doesn't depend on any server: players and game history are stored locally on this device, in this browser -- nothing is sent or shared.",
+    aideReinitialiserTitre: "Reset my data",
+    aideReinitialiserConfirmTexte: "This permanently deletes every saved player and all game history on this device. This cannot be undone.",
+    aideReinitialiserConfirmValider: "Reset",
+    aideAnnuler: "Cancel",
+    aideReinitialiserSucces: "Data reset.",
+    aideReinitialiserErreur: "Reset failed.",
   },
 };
 

@@ -232,6 +232,18 @@ mise en place d'une partie, saisie des points, confidentialité locale).
 Pas d'export/import de sauvegarde pour l'instant (contrairement à
 FletchLog) -- pas demandé, pas construit.
 
+**Réinitialisation des données** (retour utilisateur, 2026-08-25) :
+`storage.js` expose `reinitialiserDonnees()` (vide les deux stores en
+une seule transaction atomique). Bouton dans la section "Tes données"
+d'`aide.html`, avec confirmation obligatoire (`.confirm-overlay`, JAMAIS
+`window.confirm()` -- son titre imposé par le navigateur affiche
+l'adresse plutôt que "FletchGames", piège déjà corrigé chez FletchLog).
+En passant, repéré et corrigé un vrai bug latent : `.btn-annuler` était
+utilisé dans `jouer.html` (Équipe suivante, Retour à l'accueil) sans
+jamais avoir sa propre règle CSS -- retombait sur le style générique de
+`button` dans `theme.css` (pas de fond défini, texte blanc, peu
+lisible). Ajouté aussi dans `jouer.html` en corrigeant.
+
 ## Piège XML déjà rencontré deux fois ailleurs, reproduit une 3e fois ici
 
 `--` (double-hyphen) est invalide dans un commentaire XML/SVG -- déjà

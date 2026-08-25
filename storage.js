@@ -117,6 +117,25 @@ function enregistrerPartie(partie) {
   );
 }
 
+// Vide entièrement les deux stores -- retour utilisateur (aide.html,
+// section "Tes données"), un seul geste pour repartir de zéro plutôt
+// que de supprimer les joueurs un par un (supprimerJoueur ci-dessus)
+// ou d'attendre un export/import complet (pas construit pour
+// l'instant, voir CLAUDE.md). Une seule transaction sur les deux
+// stores -- soit les deux se vident, soit aucun (atomique).
+function reinitialiserDonnees() {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction(["joueurs", "parties"], "readwrite");
+        transaction.objectStore("joueurs").clear();
+        transaction.objectStore("parties").clear();
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
 function listerParties(jeuId) {
   return _ouvrirDB().then(
     (db) =>
