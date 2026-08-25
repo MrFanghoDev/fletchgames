@@ -76,6 +76,17 @@
   }
   .carte-aide:hover { border-color: var(--gold); color: var(--gold); }
 
+  /* Jeu au hasard -- fait défiler rapidement puis s'arrête sur un jeu
+     tiré au sort (voir tirerJeuAuHasard() dans accueil.js). Discret
+     (fond transparent, pas .btn-primary) : un coup de pouce, pas
+     l'action principale de la page. */
+  .bouton-jeu-hasard {
+    display: block; width: 100%; margin: 0.6rem 0 0; background: transparent;
+    border: 1px dashed var(--border); border-radius: var(--radius); padding: 0.6rem 1rem;
+    color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-align: center;
+  }
+  .bouton-jeu-hasard:active { border-color: var(--gold); color: var(--gold); }
+
   footer { margin-top: 2.5rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
   footer a { color: var(--text-muted); }
 </style>
@@ -103,6 +114,7 @@
 
     <h2 class="section-titre" data-i18n="accueilJeuxTitre">Les jeux</h2>
     <div class="carrousel" id="carrousel-jeux"></div>
+    <button type="button" class="bouton-jeu-hasard" id="bouton-jeu-hasard" data-i18n="accueilJeuHasard">🎲 Jeu au hasard</button>
 
     <h2 class="section-titre" data-i18n="accueilHistoriqueTitre">Historique et statistiques</h2>
     <div class="carrousel" id="carrousel-historique"></div>

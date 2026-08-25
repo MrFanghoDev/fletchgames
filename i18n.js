@@ -21,6 +21,7 @@ const TRANSLATIONS = {
     aideLien: "Aide",
 
     accueilJeuxTitre: "Les jeux",
+    accueilJeuHasard: "🎲 Jeu au hasard",
     accueilHistoriqueTitre: "Historique et statistiques",
     accueilAucunePartie: "Aucune partie jouée pour l'instant.",
     accueilPartieSing: "partie jouée",
@@ -131,6 +132,7 @@ const TRANSLATIONS = {
     aideLien: "Help",
 
     accueilJeuxTitre: "Games",
+    accueilJeuHasard: "🎲 Random game",
     accueilHistoriqueTitre: "History and stats",
     accueilAucunePartie: "No game played yet.",
     accueilPartieSing: "game played",

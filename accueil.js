@@ -163,61 +163,71 @@ async function construireCarrouselHistorique() {
   }
 }
 
-// ---- Défilement automatique -------------------------------------------
-// Retour utilisateur (2026-08-25) : les deux carrousels tournent tout
-// seuls, cycliquement (retour au début après la dernière carte), en
-// même temps -- deux minuteurs indépendants, pas besoin de les
-// synchroniser image par image pour que ça se "sente" simultané.
-// Coupé si prefers-reduced-motion (accessibilité) ou s'il n'y a qu'une
-// carte (rien à faire tourner). Mis en pause dès que l'utilisateur
-// touche le carrousel lui-même (balayage manuel), reprend après un
-// moment d'inactivité -- sinon le défilement auto viendrait perturber
-// un geste en cours.
-const ESPACEMENT_CARTES = 12; // doit rester cohérent avec .carrousel { gap: 12px }
-const defilementsActifs = new Map();
+// ---- Synchronisation des deux carrousels --------------------------------
+// Retour utilisateur (2026-08-25, corrige une 1re tentative de
+// défilement automatique qui n'était pas ce qui était demandé) :
+// bouger un carrousel à la main (balayage) fait bouger l'autre en
+// miroir -- jamais de mouvement tout seul. Les deux carrousels ont le
+// même nombre de cartes, dans le même ordre (un jeu = une carte de
+// chaque côté, voir listerJeux()) et la même largeur de carte (même
+// classe .carrousel-carte), donc recopier scrollLeft tel quel suffit à
+// garder "le même jeu" visible des deux côtés.
+let synchronisationActive = false;
 
-function arreterDefilementAuto(conteneur) {
-  const etat = defilementsActifs.get(conteneur);
-  if (!etat) return;
-  clearInterval(etat.intervalId);
-  clearTimeout(etat.timeoutReprise);
-  conteneur.removeEventListener("pointerdown", etat.pauser);
-  defilementsActifs.delete(conteneur);
+function synchroniserCarrousels(a, b) {
+  const copier = (source, cible) => () => {
+    if (synchronisationActive) return;
+    synchronisationActive = true;
+    cible.scrollLeft = source.scrollLeft;
+    requestAnimationFrame(() => {
+      synchronisationActive = false;
+    });
+  };
+  a.addEventListener("scroll", copier(a, b), { passive: true });
+  b.addEventListener("scroll", copier(b, a), { passive: true });
 }
 
-function demarrerDefilementAuto(conteneur) {
-  arreterDefilementAuto(conteneur);
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  if (conteneur.children.length < 2) return;
+// ---- Jeu au hasard -------------------------------------------------------
+// Retour utilisateur -- un bouton qui fait défiler rapidement le
+// carrousel des jeux (l'historique suit tout seul via la synchronisation
+// ci-dessus) puis ralentit et s'arrête sur un jeu tiré au sort, comme
+// une roulette. Reste sur place une fois arrêté -- ne lance pas la
+// partie automatiquement, un tap sur la carte suffit ensuite (même
+// geste que d'habitude).
+function positionCarte(conteneur, carte) {
+  return carte.getBoundingClientRect().left - conteneur.getBoundingClientRect().left + conteneur.scrollLeft;
+}
 
-  const etat = { enPause: false, intervalId: null, timeoutReprise: null, pauser: null };
+function attendre(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  const avancer = () => {
-    if (etat.enPause) return;
-    const largeurCarte = conteneur.children[0].getBoundingClientRect().width + ESPACEMENT_CARTES;
-    const positionMax = conteneur.scrollWidth - conteneur.clientWidth - 2;
-    const prochainePosition = conteneur.scrollLeft + largeurCarte;
-    conteneur.scrollTo({ left: prochainePosition > positionMax ? 0 : prochainePosition, behavior: "smooth" });
-  };
+async function tirerJeuAuHasard() {
+  const conteneur = document.getElementById("carrousel-jeux");
+  const cartes = Array.from(conteneur.children);
+  if (cartes.length < 2) return;
 
-  etat.pauser = () => {
-    etat.enPause = true;
-    clearTimeout(etat.timeoutReprise);
-    etat.timeoutReprise = setTimeout(() => {
-      etat.enPause = false;
-    }, 6000);
-  };
+  const bouton = document.getElementById("bouton-jeu-hasard");
+  bouton.disabled = true;
 
-  conteneur.addEventListener("pointerdown", etat.pauser);
-  etat.intervalId = setInterval(avancer, 4000);
-  defilementsActifs.set(conteneur, etat);
+  const indexDepart = cartes.findIndex((carte) => Math.abs(positionCarte(conteneur, carte) - conteneur.scrollLeft) < 4);
+  const indexCible = Math.floor(Math.random() * cartes.length);
+  const tours = 3; // nombre de tours complets avant de s'arrêter, pour l'effet roulette
+  const totalEtapes = tours * cartes.length + ((indexCible - Math.max(indexDepart, 0) + cartes.length) % cartes.length);
+
+  for (let etape = 1; etape <= totalEtapes; etape++) {
+    const index = (Math.max(indexDepart, 0) + etape) % cartes.length;
+    conteneur.scrollTo({ left: positionCarte(conteneur, cartes[index]), behavior: "auto" });
+    const progression = etape / totalEtapes;
+    await attendre(50 + progression * progression * 260);
+  }
+
+  bouton.disabled = false;
 }
 
 async function construireCarrousels() {
   await construireCarrouselJeux();
   await construireCarrouselHistorique();
-  demarrerDefilementAuto(document.getElementById("carrousel-jeux"));
-  demarrerDefilementAuto(document.getElementById("carrousel-historique"));
 }
 
 window.setLanguage = function setLanguage(lang) {
@@ -229,3 +239,8 @@ window.setLanguage = function setLanguage(lang) {
 
 applyTranslations();
 construireCarrousels();
+// Une seule fois -- les conteneurs eux-mêmes ne sont jamais recréés
+// (seul leur contenu l'est à chaque construireCarrousels(), voir
+// plus haut), pas la peine de rattacher les écouteurs à chaque fois.
+synchroniserCarrousels(document.getElementById("carrousel-jeux"), document.getElementById("carrousel-historique"));
+document.getElementById("bouton-jeu-hasard").addEventListener("click", tirerJeuAuHasard);
