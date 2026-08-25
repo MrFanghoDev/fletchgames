@@ -163,9 +163,61 @@ async function construireCarrouselHistorique() {
   }
 }
 
+// ---- Défilement automatique -------------------------------------------
+// Retour utilisateur (2026-08-25) : les deux carrousels tournent tout
+// seuls, cycliquement (retour au début après la dernière carte), en
+// même temps -- deux minuteurs indépendants, pas besoin de les
+// synchroniser image par image pour que ça se "sente" simultané.
+// Coupé si prefers-reduced-motion (accessibilité) ou s'il n'y a qu'une
+// carte (rien à faire tourner). Mis en pause dès que l'utilisateur
+// touche le carrousel lui-même (balayage manuel), reprend après un
+// moment d'inactivité -- sinon le défilement auto viendrait perturber
+// un geste en cours.
+const ESPACEMENT_CARTES = 12; // doit rester cohérent avec .carrousel { gap: 12px }
+const defilementsActifs = new Map();
+
+function arreterDefilementAuto(conteneur) {
+  const etat = defilementsActifs.get(conteneur);
+  if (!etat) return;
+  clearInterval(etat.intervalId);
+  clearTimeout(etat.timeoutReprise);
+  conteneur.removeEventListener("pointerdown", etat.pauser);
+  defilementsActifs.delete(conteneur);
+}
+
+function demarrerDefilementAuto(conteneur) {
+  arreterDefilementAuto(conteneur);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (conteneur.children.length < 2) return;
+
+  const etat = { enPause: false, intervalId: null, timeoutReprise: null, pauser: null };
+
+  const avancer = () => {
+    if (etat.enPause) return;
+    const largeurCarte = conteneur.children[0].getBoundingClientRect().width + ESPACEMENT_CARTES;
+    const positionMax = conteneur.scrollWidth - conteneur.clientWidth - 2;
+    const prochainePosition = conteneur.scrollLeft + largeurCarte;
+    conteneur.scrollTo({ left: prochainePosition > positionMax ? 0 : prochainePosition, behavior: "smooth" });
+  };
+
+  etat.pauser = () => {
+    etat.enPause = true;
+    clearTimeout(etat.timeoutReprise);
+    etat.timeoutReprise = setTimeout(() => {
+      etat.enPause = false;
+    }, 6000);
+  };
+
+  conteneur.addEventListener("pointerdown", etat.pauser);
+  etat.intervalId = setInterval(avancer, 4000);
+  defilementsActifs.set(conteneur, etat);
+}
+
 async function construireCarrousels() {
   await construireCarrouselJeux();
   await construireCarrouselHistorique();
+  demarrerDefilementAuto(document.getElementById("carrousel-jeux"));
+  demarrerDefilementAuto(document.getElementById("carrousel-historique"));
 }
 
 window.setLanguage = function setLanguage(lang) {
