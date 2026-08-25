@@ -172,19 +172,34 @@ async function construireCarrouselHistorique() {
 // chaque côté, voir listerJeux()) et la même largeur de carte (même
 // classe .carrousel-carte), donc recopier scrollLeft tel quel suffit à
 // garder "le même jeu" visible des deux côtés.
-let synchronisationActive = false;
-
+//
+// Basé sur un sondage à chaque image (requestAnimationFrame), PAS sur
+// l'événement "scroll" (essayé d'abord, retour utilisateur : "les
+// cartes changent bien de titre mais ne bougent pas") -- pendant un
+// vrai balayage tactile, le navigateur peut ne déclencher "scroll" que
+// rarement (fin de geste, defilement par inertie géré hors du thread
+// JS), donc le carrousel "suiveur" sautait directement à la position
+// finale sans jamais glisser à l'écran. Lire scrollLeft à chaque image
+// est indépendant de la fréquence des événements -- toujours à jour,
+// glisse à l'écran en même temps que le doigt.
 function synchroniserCarrousels(a, b) {
-  const copier = (source, cible) => () => {
-    if (synchronisationActive) return;
-    synchronisationActive = true;
-    cible.scrollLeft = source.scrollLeft;
-    requestAnimationFrame(() => {
-      synchronisationActive = false;
-    });
-  };
-  a.addEventListener("scroll", copier(a, b), { passive: true });
-  b.addEventListener("scroll", copier(b, a), { passive: true });
+  let dernierA = a.scrollLeft;
+  let dernierB = b.scrollLeft;
+
+  function sonder() {
+    if (a.scrollLeft !== dernierA) {
+      dernierA = a.scrollLeft;
+      b.scrollLeft = dernierA;
+      dernierB = dernierA;
+    } else if (b.scrollLeft !== dernierB) {
+      dernierB = b.scrollLeft;
+      a.scrollLeft = dernierB;
+      dernierA = dernierB;
+    }
+    requestAnimationFrame(sonder);
+  }
+
+  requestAnimationFrame(sonder);
 }
 
 // ---- Jeu au hasard -------------------------------------------------------
