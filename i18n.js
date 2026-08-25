@@ -69,6 +69,8 @@ const TRANSLATIONS = {
 
     jeuQuiGagneManche: "Qui a gagné cette manche ?",
     jeuQuiPerdManche: "Qui a le moins bien tiré ?",
+    jeuQuiPlusProche: "Qui s'en est le plus rapproché ?",
+    jeuRepereAction: "tire la flèche de référence",
     jeuCombienPoints: "Combien de points ?",
     jeuQuelScore: "Quel score ?",
     jeuValider: "Valider",
@@ -76,6 +78,7 @@ const TRANSLATIONS = {
     jeuObjectif: "Objectif :",
     jeuPoints: "pts",
     jeuManchesGagnees: "manches gagnées",
+    jeuMancheSur: "Manche",
     jeuViesDepart: "Vies de départ :",
     jeuVies: "vies",
 
@@ -176,6 +179,8 @@ const TRANSLATIONS = {
 
     jeuQuiGagneManche: "Which team won this round?",
     jeuQuiPerdManche: "Who shot worst?",
+    jeuQuiPlusProche: "Who got closest?",
+    jeuRepereAction: "shoots the reference arrow",
     jeuCombienPoints: "How many points?",
     jeuQuelScore: "What's the score?",
     jeuValider: "Confirm",
@@ -183,6 +188,7 @@ const TRANSLATIONS = {
     jeuObjectif: "Target:",
     jeuPoints: "pts",
     jeuManchesGagnees: "round wins",
+    jeuMancheSur: "Round",
     jeuViesDepart: "Starting lives:",
     jeuVies: "lives",
 

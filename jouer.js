@@ -59,6 +59,20 @@ let scoresMancheEnCours = {};
 let numeroManche = 1;
 let perdantsSelectionnes = new Set();
 
+// configPartie (voir plus haut) -- valeur choisie à la mise en place
+// pour toute la partie (ex. nombre de manches), pas par participant.
+let configPartieValeur = null;
+
+// "suivre-le-repere" (voir plus haut, suivezmoi.js) -- un tireur de
+// référence différent à chaque tour (tourCourant = son index dans
+// `equipes`), autant de tours qu'il y a de participants par manche ;
+// manchesJouees compte les manches déjà terminées (comparé à
+// configPartieValeur pour savoir quand arrêter la partie -- cette
+// comparaison vit ici, pas dans jeu.estTerminee, voir suivezmoi.js).
+let tourCourant = 0;
+let manchesJouees = 0;
+let plusProchesSelectionnes = new Set();
+
 function nomJeu() {
   return jeu.nom[currentLanguage] || jeu.nom.fr;
 }
@@ -192,6 +206,17 @@ function rendreSetup() {
     });
   }
 
+  const conteneurConfigPartie = document.getElementById("champ-config-partie-conteneur");
+  conteneurConfigPartie.hidden = !jeu.configPartie;
+  if (jeu.configPartie) {
+    const { label, min, max, defaut } = jeu.configPartie;
+    document.getElementById("champ-config-partie-label").textContent = label[currentLanguage] || label.fr;
+    const champ = document.getElementById("champ-config-partie");
+    champ.min = String(min);
+    champ.max = String(max);
+    if (!champ.value) champ.value = String(defaut);
+  }
+
   document.getElementById("setup-erreur").textContent = "";
 }
 
@@ -296,6 +321,14 @@ function commencerPartie() {
   scoresMancheEnCours = {};
   numeroManche = 1;
   perdantsSelectionnes = new Set();
+  if (jeu.configPartie) {
+    const valeur = parseInt(document.getElementById("champ-config-partie").value, 10);
+    const { min, max, defaut } = jeu.configPartie;
+    configPartieValeur = Number.isInteger(valeur) ? Math.min(max, Math.max(min, valeur)) : defaut;
+  }
+  tourCourant = 0;
+  manchesJouees = 0;
+  plusProchesSelectionnes = new Set();
   etape = "jeu";
   afficherEcran("ecran-jeu");
   rendreJeu();
@@ -320,6 +353,8 @@ function rendreObjectif() {
     objectif.textContent = `${t(currentLanguage, "jeuObjectif")} ${jeu.objectifVictoires} ${t(currentLanguage, "jeuManchesGagnees")}`;
   } else if (jeu.viesDepart !== undefined) {
     objectif.textContent = `${t(currentLanguage, "jeuViesDepart")} ${jeu.viesDepart}`;
+  } else if (jeu.configPartie && configPartieValeur !== null) {
+    objectif.textContent = `${t(currentLanguage, "jeuMancheSur")} ${Math.min(manchesJouees + 1, configPartieValeur)}/${configPartieValeur}`;
   } else {
     objectif.textContent = "";
   }
@@ -367,6 +402,7 @@ function rendreJeu() {
   document.getElementById("jeu-saisie-valeur").hidden = !enVainqueurPlusValeur || !vainqueurManche;
   document.getElementById("jeu-saisie-score-chacun").hidden = jeu.modeSaisie !== "score-chacun-son-tour";
   document.getElementById("jeu-saisie-perdant").hidden = jeu.modeSaisie !== "perdant-de-la-manche";
+  document.getElementById("jeu-saisie-repere").hidden = jeu.modeSaisie !== "suivre-le-repere";
 
   if (enVainqueurPlusValeur || enVainqueurSeul) {
     if (!vainqueurManche) {
@@ -405,6 +441,8 @@ function rendreJeu() {
     rendreScoreChacun();
   } else if (jeu.modeSaisie === "perdant-de-la-manche") {
     rendrePerdant();
+  } else if (jeu.modeSaisie === "suivre-le-repere") {
+    rendreRepere();
   }
 }
 
@@ -536,6 +574,72 @@ function validerPerdants() {
   }
 }
 
+// ---- modeSaisie "suivre-le-repere" --------------------------------------
+// Une manche comporte autant de tours que de participants (chacun sert
+// de référence une fois, voir suivezmoi.js) -- deux niveaux, contrairement
+// à tous les modes précédents où une "manche" moteur est la plus petite
+// unité de jeu. tourCourant/manchesJouees (état ci-dessus) vivent dans
+// jouer.js, pas dans jeu.etatInitial() : ce sont des compteurs
+// d'orchestration, pas l'état d'UN participant en particulier.
+
+function rendreRepere() {
+  const reference = equipes[tourCourant];
+  document.getElementById("repere-titre").textContent = `${reference.nom} — ${t(currentLanguage, "jeuRepereAction")}`;
+
+  const boutons = document.getElementById("repere-boutons");
+  boutons.innerHTML = "";
+  for (const participant of equipes) {
+    if (participant.id === reference.id) continue;
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "equipe-bouton";
+    bouton.classList.toggle("selectionne", plusProchesSelectionnes.has(participant.id));
+    bouton.textContent = participant.nom;
+    bouton.addEventListener("click", () => {
+      if (plusProchesSelectionnes.has(participant.id)) plusProchesSelectionnes.delete(participant.id);
+      else plusProchesSelectionnes.add(participant.id);
+      rendreRepere();
+    });
+    boutons.appendChild(bouton);
+  }
+}
+
+function validerRepere() {
+  if (plusProchesSelectionnes.size === 0) return;
+
+  const reference = equipes[tourCourant];
+  for (const participant of equipes) {
+    if (participant.id === reference.id) continue;
+    const pointManche = plusProchesSelectionnes.has(participant.id);
+    manches.push({ participantId: participant.id, pointManche, manche: manchesJouees + 1, referenceId: reference.id });
+    etatsParParticipant[participant.id] = jeu.appliquerManche(etatsParParticipant[participant.id], { pointManche });
+  }
+  plusProchesSelectionnes = new Set();
+  tourCourant += 1;
+
+  if (tourCourant < equipes.length) {
+    rendreJeu();
+    return;
+  }
+
+  // Manche complète (chacun a servi de référence une fois) --
+  // détermine le(s) vainqueur(s) de la manche et remet les compteurs à
+  // zéro pour la suivante (voir finaliserManche() dans suivezmoi.js).
+  const meilleur = Math.max(...equipes.map((e) => etatsParParticipant[e.id].pointsManche));
+  for (const equipe of equipes) {
+    const mancheGagnee = etatsParParticipant[equipe.id].pointsManche === meilleur;
+    etatsParParticipant[equipe.id] = jeu.finaliserManche(etatsParParticipant[equipe.id], { mancheGagnee });
+  }
+  manchesJouees += 1;
+  tourCourant = 0;
+
+  if (manchesJouees >= configPartieValeur) {
+    terminerPartie();
+  } else {
+    rendreJeu();
+  }
+}
+
 async function terminerPartie() {
   const participants = equipes.map((e) => ({
     id: e.id,
@@ -592,8 +696,13 @@ function reinitialiserPourNouvellePartie() {
   scoresMancheEnCours = {};
   numeroManche = 1;
   perdantsSelectionnes = new Set();
+  configPartieValeur = null;
+  tourCourant = 0;
+  manchesJouees = 0;
+  plusProchesSelectionnes = new Set();
   etape = "setup";
   document.getElementById("champ-nom-equipe").value = "";
+  document.getElementById("champ-config-partie").value = "";
   afficherEcran("ecran-setup");
   rendreSetup();
 }
@@ -678,6 +787,7 @@ async function init() {
   });
   document.getElementById("score-chacun-valider").addEventListener("click", enregistrerScoreChacun);
   document.getElementById("perdant-valider").addEventListener("click", validerPerdants);
+  document.getElementById("repere-valider").addEventListener("click", validerRepere);
   document.getElementById("fin-accueil").addEventListener("click", () => {
     location.href = "index.html";
   });

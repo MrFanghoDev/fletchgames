@@ -54,7 +54,7 @@ Discuté dans fletchapps#3 avant tout code.
   l'environnement `github-pages`, et déploiement silencieusement
   ignoré sur un SHA déjà publié).
 
-## Moteur de jeu (Pétanque/Triangle/Killer le 2026-08-24, Bingo/Streak le 2026-08-25)
+## Moteur de jeu (Pétanque/Triangle/Killer le 2026-08-24, Bingo/Streak/Suivez-moi le 2026-08-25)
 
 Contrat d'un module `moteur/jeux/<jeu>.js` (voir `petanque.js` pour
 l'exemple complet) :
@@ -65,7 +65,8 @@ l'exemple complet) :
   variantes: {fr: [...], en: [...]} | undefined,  // optionnel, règles facultatives (voir plus bas)
   modesParticipant: ["individuel", "equipe"],   // au moins un des deux, ordre = ordre d'affichage
   configParticipant: { champ, label: {fr, en}, min, max, defaut } | null,
-  modeSaisie: "vainqueur-plus-valeur" | "score-chacun-son-tour" | "perdant-de-la-manche" | ...,
+  configPartie: { champ, label: {fr, en}, min, max, defaut } | undefined,  // optionnel, réglage de PARTIE (voir plus bas)
+  modeSaisie: "vainqueur-plus-valeur" | "score-chacun-son-tour" | "perdant-de-la-manche" | "vainqueur-seul" | "suivre-le-repere" | ...,
   objectifPoints,       // optionnel -- fin de partie par seuil de points (Pétanque)
   objectifVictoires,    // optionnel -- fin de partie par nombre de manches gagnées (Triangle)
   viesDepart,           // optionnel -- fin de partie quand il ne reste qu'un survivant (Killer)
@@ -73,7 +74,8 @@ l'exemple complet) :
   valeursPossibles(participant) -> number[],    // requis seulement pour "vainqueur-plus-valeur"
   etatInitial() -> etat,
   appliquerManche(etat, saisie) -> etat,
-  estTerminee(etatsParParticipant) -> bool,
+  finaliserManche(etat, saisie) -> etat,        // optionnel, voir "suivre-le-repere" (Suivez-moi)
+  estTerminee(etatsParParticipant) -> bool,     // optionnel si jouer.js gère la fin autrement (voir Suivez-moi)
   classement(participants, etatsParParticipant) -> [{id, nom, points, rang}],
 }
 ```
@@ -128,9 +130,39 @@ mécanique de saisie ("chacun entre un nombre à tour de rôle"), mais
 tour") est simplement ignoré côté `bingo.js` -- sans objet pour ce jeu.
 Aucun nouveau `modeSaisie` n'a donc été nécessaire pour Bingo.
 
+- **"suivre-le-repere"** (Suivez-moi, ajouté le 2026-08-25) : le seul
+  mode à DEUX niveaux -- une manche comporte plusieurs TOURS (un par
+  participant), pas une seule décision comme tous les modes
+  précédents. À chaque tour, un participant différent (`equipes[tourCourant]`,
+  compteur tenu par jouer.js) est le "tireur de référence" (annoncé,
+  ne participe pas à ce tour) ; les autres sont proposés en sélection
+  multiple ("qui s'en est le plus rapproché ?", égalité possible).
+  Après "Valider" : `appliquerManche(etat, {pointManche})` pour chaque
+  participant SAUF la référence de ce tour. Une fois que tous les
+  participants ont servi de référence (fin de manche), jouer.js calcule
+  le(s) vainqueur(s) de la manche (plus haut `pointsManche`) et appelle
+  `finaliserManche(etat, {mancheGagnee})` pour TOUS les participants
+  (remet `pointsManche` à 0, crédite `manchesGagnees`). La fin de
+  partie ("N manches jouées") est comparée directement dans jouer.js
+  (`manchesJouees >= configPartieValeur`, deux compteurs
+  d'orchestration qui vivent dans jouer.js) -- PAS via `jeu.estTerminee`,
+  qui n'a pas de sens ici (rien à voir avec l'état d'UN participant en
+  particulier) ; `suivezmoi.js` ne définit d'ailleurs pas cette
+  fonction, elle est bien optionnelle au contrat.
+
 D'autres valeurs de `modeSaisie` prévues au contrat (clavier fixe,
 boutons fixes) seront ajoutées quand un jeu les utilisera réellement,
 pas avant.
+
+**`configPartie`** (Suivez-moi, premier jeu dans ce cas) : un réglage
+choisi UNE SEULE FOIS pour toute la partie à la mise en place (ex.
+nombre de manches), affiché juste avant "Commencer la partie" -- à ne
+pas confondre avec `configParticipant` (un réglage PAR participant,
+ex. le nombre de flèches de Pétanque). La valeur choisie est lue par
+jouer.js dans `commencerPartie()` et stockée dans sa propre variable
+(`configPartieValeur`), jamais passée aux fonctions du contrat --
+c'est une donnée d'orchestration, pas un élément de l'état d'un
+participant.
 
 **`configParticipant: null`** (Triangle, premier jeu dans ce cas) :
 quand un jeu n'a besoin d'aucun réglage par participant (pas de
@@ -203,7 +235,7 @@ restantes dans le classement en cours de partie (au lieu des points,
 peu parlants pour ce jeu) et estompe visuellement (`.elimine`) les
 participants à 0 vie plutôt que de les retirer de la liste.
 
-**Bingo** (5e jeu, 2026-08-25) : `modesParticipant: ["individuel"]`,
+**Bingo** (4e jeu, 2026-08-25) : `modesParticipant: ["individuel"]`,
 `configParticipant: null`, réutilise `modeSaisie: "score-chacun-son-tour"`
 (voir plus haut). Grille 3x3 fixe (valeurs 1 à 9, même disposition pour
 tout le monde -- seules les valeurs cochées comptent, pas leur
@@ -222,7 +254,7 @@ pour tout futur jeu** : `etat` doit toujours exposer un champ `points`
 cohérent avec ce qu'on veut voir progresser en direct, même quand ce
 n'est pas la métrique de tri "naturelle" du jeu.
 
-**Streak** (6e jeu, 2026-08-25) : `modesParticipant: ["individuel",
+**Streak** (5e jeu, 2026-08-25) : `modesParticipant: ["individuel",
 "equipe"]` (comme Pétanque), `configParticipant: null`, `modeSaisie:
 "vainqueur-seul"` (voir plus haut). Un point de plus que la série de
 victoires d'affilée en cours (1re victoire = 1 pt, 2e consécutive = 2
@@ -232,6 +264,18 @@ fonctionnent aussi en combinaison "équipe SANS réglage par
 coéquipier" (jusqu'ici seule Pétanque avait testé le mode équipe, mais
 toujours avec `configParticipant` renseigné) -- confirmé sans code
 supplémentaire nécessaire.
+
+**Suivez-moi** (6e jeu, 2026-08-25) : `modesParticipant: ["individuel"]`,
+`configParticipant: null`, `modeSaisie: "suivre-le-repere"` (voir plus
+haut), `configPartie` pour le nombre de manches (défaut 3, voir plus
+haut). Le seul jeu où une manche a une structure interne (tours) --
+voir le contrat pour le détail. Vérifié en Node (rotation de la
+référence sur 3 participants, calcul du vainqueur de manche, remise à
+zéro entre manches, classement final) puis en navigateur réel
+(assistant de mise en place avec le champ "Nombre de manches", 2
+manches complètes jouées avec vainqueurs différents à chaque fois,
+écran "Manche X/N" mis à jour correctement, fin de partie exactement
+au nombre de manches choisi).
 
 **Stockage** (`storage.js`, IndexedDB) : deux stores seulement,
 `joueurs` (mémorisés d'une partie à l'autre pour l'autocomplete) et
