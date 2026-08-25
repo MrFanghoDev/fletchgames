@@ -17,8 +17,12 @@
 <link rel="stylesheet" href="theme.css">
 <style>
   /* Page d'accueil -- grand hero (retour utilisateur, 2026-08-24 :
-     la version compacte réduisait trop le logo/titre) suivi de deux
-     carrousels (jeux, puis historique/stats) et d'une carte Aide. */
+     la version compacte réduisait trop le logo/titre) suivi du
+     carrousel des jeux (présentation + statistiques combinées sur
+     chaque carte -- deux carrousels séparés existaient avant, mais
+     leur synchronisation ne suivait jamais fidèlement un vrai
+     balayage tactile malgré deux tentatives, voir CLAUDE.md) et d'une
+     carte Aide. */
   body { display: flex; flex-direction: column; align-items: center; padding: 5.5rem 1.25rem 2rem; min-height: 100vh; box-sizing: border-box; }
   .accueil { width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center; }
 
@@ -35,9 +39,8 @@
 
   /* margin-top généreux avant "Les jeux" (retour utilisateur, 2026-08-24)
      -- le hero doit garder sa respiration d'origine (comme fletchlog),
-     pas être comprimé par la première section qui suit juste en dessous. */
-  .section-titre { align-self: flex-start; font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 3rem 0 0.6rem; }
-  .section-titre:first-of-type { margin-top: 2.5rem; }
+     pas être comprimé par la section qui suit juste en dessous. */
+  .section-titre { align-self: flex-start; font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 2.5rem 0 0.6rem; }
 
   /* Carrousel -- scroll-snap natif plutôt que le patron de piste/JS
      de la lightbox de FletchLog (pensé pour du pinch-zoom photo, bien
@@ -45,14 +48,12 @@
      tactile natif du navigateur, pas de JS de glissement à maintenir. */
   .carrousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 4px 10px; width: 100%; scrollbar-width: none; }
   .carrousel::-webkit-scrollbar { display: none; }
-  /* Cadre or sur les cartes du carrousel des jeux (retour utilisateur,
-     2026-08-25) -- seulement celles-ci, pas celles de l'historique :
-     ce sont celles qu'on touche pour lancer une partie, méritent de
-     ressortir un peu plus sur la page. */
-  #carrousel-jeux .carrousel-carte { border-color: var(--gold); }
   .carrousel-carte {
     scroll-snap-align: start; flex: 0 0 84%; max-width: 340px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem;
+    /* Cadre or -- retour utilisateur, 2026-08-25 : ce sont les cartes
+       qu'on touche pour lancer une partie, méritent de ressortir un
+       peu plus sur la page. */
+    border: 1px solid var(--gold); border-radius: var(--radius); padding: 1rem 1.1rem;
     text-align: left; font-family: inherit; color: var(--text); cursor: default; display: flex; flex-direction: column; gap: 0.4rem;
   }
   button.carrousel-carte { cursor: pointer; }
@@ -115,9 +116,6 @@
     <h2 class="section-titre" data-i18n="accueilJeuxTitre">Les jeux</h2>
     <div class="carrousel" id="carrousel-jeux"></div>
     <button type="button" class="bouton-jeu-hasard" id="bouton-jeu-hasard" data-i18n="accueilJeuHasard">🎲 Jeu au hasard</button>
-
-    <h2 class="section-titre" data-i18n="accueilHistoriqueTitre">Historique et statistiques</h2>
-    <div class="carrousel" id="carrousel-historique"></div>
 
     <a class="carte-aide" href="aide.html" data-i18n="aideLien">Aide</a>
   </div>

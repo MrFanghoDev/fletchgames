@@ -1,8 +1,15 @@
-/* Page d'accueil -- carrousel des jeux (cliquer lance la partie) puis
- * carrousel historique/stats (un volet par jeu : palmarès, record en
- * une manche, statistique amusante). Tout est recalculé depuis
- * storage.js à chaque chargement -- pas de cache, le volume de
- * données reste minuscule (usage club, pas de gros historique).
+/* Page d'accueil -- un seul carrousel de jeux (cliquer une carte lance
+ * la partie), chaque carte combinant sa présentation ET ses
+ * statistiques (palmarès, record, participant le plus assidu). Deux
+ * carrousels séparés existaient avant (retour utilisateur, 2026-08-25)
+ * mais la synchronisation entre les deux ne suivait jamais fidèlement
+ * un vrai balayage tactile malgré deux tentatives de correction -- un
+ * seul carrousel élimine le problème à la racine plutôt que de
+ * continuer à le corriger.
+ *
+ * Tout est recalculé depuis storage.js à chaque chargement -- pas de
+ * cache, le volume de données reste minuscule (usage club, pas de gros
+ * historique).
  */
 import { listerJeux } from "./moteur/jeux/index.js";
 
@@ -62,55 +69,16 @@ function pluralisePartie(n) {
   return `${n} ${t(currentLanguage, n === 1 ? "accueilPartieSing" : "accueilPartiePlur")}`;
 }
 
-async function construireCarrouselJeux() {
-  const conteneur = document.getElementById("carrousel-jeux");
-  conteneur.innerHTML = "";
-  for (const jeu of listerJeux()) {
-    const parties = await listerParties(jeu.id);
-    const carte = document.createElement("button");
-    carte.type = "button";
-    carte.className = "carrousel-carte jeu-carte";
-
-    const titre = document.createElement("h3");
-    titre.textContent = nomJeu(jeu);
-    const presentation = document.createElement("p");
-    presentation.className = "jeu-presentation";
-    presentation.textContent = presentationJeu(jeu);
-    const historique = document.createElement("p");
-    historique.className = "jeu-historique-mini";
-    historique.textContent = pluralisePartie(parties.length);
-
-    carte.append(titre, presentation, historique);
-    carte.addEventListener("click", () => {
-      location.href = `jouer.html?jeu=${encodeURIComponent(jeu.id)}`;
-    });
-    conteneur.appendChild(carte);
+function ajouterStats(carte, stats) {
+  if (stats.total === 0) {
+    const vide = document.createElement("p");
+    vide.className = "stat-ligne";
+    vide.textContent = t(currentLanguage, "accueilAucunePartie");
+    carte.appendChild(vide);
+    return;
   }
-}
 
-async function construireCarrouselHistorique() {
-  const conteneur = document.getElementById("carrousel-historique");
-  conteneur.innerHTML = "";
-  for (const jeu of listerJeux()) {
-    const parties = await listerParties(jeu.id);
-    const stats = calculerStats(parties);
-
-    const carte = document.createElement("div");
-    carte.className = "carrousel-carte historique-carte";
-
-    const titre = document.createElement("h3");
-    titre.textContent = nomJeu(jeu);
-    carte.appendChild(titre);
-
-    if (stats.total === 0) {
-      const vide = document.createElement("p");
-      vide.className = "stat-ligne";
-      vide.textContent = t(currentLanguage, "accueilAucunePartie");
-      carte.appendChild(vide);
-      conteneur.appendChild(carte);
-      continue;
-    }
-
+  if (stats.podium.length > 0) {
     const podiumTitre = document.createElement("p");
     podiumTitre.className = "stat-ligne";
     podiumTitre.innerHTML = `<strong>${t(currentLanguage, "accueilPodiumTitre")}</strong>`;
@@ -135,77 +103,65 @@ async function construireCarrouselHistorique() {
       podiumDiv.appendChild(ligne);
     });
     carte.appendChild(podiumDiv);
+  }
 
-    if (stats.record) {
-      const record = document.createElement("p");
-      record.className = "stat-ligne";
-      record.textContent = `${t(currentLanguage, "accueilRecordTitre")} : `;
-      const strong = document.createElement("strong");
-      strong.textContent = `${stats.record.points} ${t(currentLanguage, "accueilRecordPoints")}`;
-      record.appendChild(strong);
-      record.append(` ${t(currentLanguage, "accueilRecordPar")} ${stats.record.nom}`);
-      carte.appendChild(record);
-    }
+  if (stats.record) {
+    const record = document.createElement("p");
+    record.className = "stat-ligne";
+    record.textContent = `${t(currentLanguage, "accueilRecordTitre")} : `;
+    const strong = document.createElement("strong");
+    strong.textContent = `${stats.record.points} ${t(currentLanguage, "accueilRecordPoints")}`;
+    record.appendChild(strong);
+    record.append(` ${t(currentLanguage, "accueilRecordPar")} ${stats.record.nom}`);
+    carte.appendChild(record);
+  }
 
-    if (stats.assidu) {
-      const [nomAssidu, nbParties] = stats.assidu;
-      const assidu = document.createElement("p");
-      assidu.className = "stat-ligne";
-      assidu.textContent = `${t(currentLanguage, "accueilStatAssidu")} `;
-      const strong = document.createElement("strong");
-      strong.textContent = nomAssidu;
-      assidu.appendChild(strong);
-      assidu.append(` (${nbParties} ${t(currentLanguage, "accueilStatAssiduSuffixe")})`);
-      carte.appendChild(assidu);
-    }
+  if (stats.assidu) {
+    const [nomAssidu, nbParties] = stats.assidu;
+    const assidu = document.createElement("p");
+    assidu.className = "stat-ligne";
+    assidu.textContent = `${t(currentLanguage, "accueilStatAssidu")} `;
+    const strong = document.createElement("strong");
+    strong.textContent = nomAssidu;
+    assidu.appendChild(strong);
+    assidu.append(` (${nbParties} ${t(currentLanguage, "accueilStatAssiduSuffixe")})`);
+    carte.appendChild(assidu);
+  }
+}
 
+async function construireCarrouselJeux() {
+  const conteneur = document.getElementById("carrousel-jeux");
+  conteneur.innerHTML = "";
+  for (const jeu of listerJeux()) {
+    const parties = await listerParties(jeu.id);
+    const stats = calculerStats(parties);
+
+    const carte = document.createElement("button");
+    carte.type = "button";
+    carte.className = "carrousel-carte jeu-carte historique-carte";
+
+    const titre = document.createElement("h3");
+    titre.textContent = nomJeu(jeu);
+    const presentation = document.createElement("p");
+    presentation.className = "jeu-presentation";
+    presentation.textContent = presentationJeu(jeu);
+    const historique = document.createElement("p");
+    historique.className = "jeu-historique-mini";
+    historique.textContent = pluralisePartie(parties.length);
+    carte.append(titre, presentation, historique);
+
+    ajouterStats(carte, stats);
+
+    carte.addEventListener("click", () => {
+      location.href = `jouer.html?jeu=${encodeURIComponent(jeu.id)}`;
+    });
     conteneur.appendChild(carte);
   }
 }
 
-// ---- Synchronisation des deux carrousels --------------------------------
-// Retour utilisateur (2026-08-25, corrige une 1re tentative de
-// défilement automatique qui n'était pas ce qui était demandé) :
-// bouger un carrousel à la main (balayage) fait bouger l'autre en
-// miroir -- jamais de mouvement tout seul. Les deux carrousels ont le
-// même nombre de cartes, dans le même ordre (un jeu = une carte de
-// chaque côté, voir listerJeux()) et la même largeur de carte (même
-// classe .carrousel-carte), donc recopier scrollLeft tel quel suffit à
-// garder "le même jeu" visible des deux côtés.
-//
-// Basé sur un sondage à chaque image (requestAnimationFrame), PAS sur
-// l'événement "scroll" (essayé d'abord, retour utilisateur : "les
-// cartes changent bien de titre mais ne bougent pas") -- pendant un
-// vrai balayage tactile, le navigateur peut ne déclencher "scroll" que
-// rarement (fin de geste, defilement par inertie géré hors du thread
-// JS), donc le carrousel "suiveur" sautait directement à la position
-// finale sans jamais glisser à l'écran. Lire scrollLeft à chaque image
-// est indépendant de la fréquence des événements -- toujours à jour,
-// glisse à l'écran en même temps que le doigt.
-function synchroniserCarrousels(a, b) {
-  let dernierA = a.scrollLeft;
-  let dernierB = b.scrollLeft;
-
-  function sonder() {
-    if (a.scrollLeft !== dernierA) {
-      dernierA = a.scrollLeft;
-      b.scrollLeft = dernierA;
-      dernierB = dernierA;
-    } else if (b.scrollLeft !== dernierB) {
-      dernierB = b.scrollLeft;
-      a.scrollLeft = dernierB;
-      dernierA = dernierB;
-    }
-    requestAnimationFrame(sonder);
-  }
-
-  requestAnimationFrame(sonder);
-}
-
 // ---- Jeu au hasard -------------------------------------------------------
 // Retour utilisateur -- un bouton qui fait défiler rapidement le
-// carrousel des jeux (l'historique suit tout seul via la synchronisation
-// ci-dessus) puis ralentit et s'arrête sur un jeu tiré au sort, comme
+// carrousel puis ralentit et s'arrête sur un jeu tiré au sort, comme
 // une roulette. Reste sur place une fois arrêté -- ne lance pas la
 // partie automatiquement, un tap sur la carte suffit ensuite (même
 // geste que d'habitude).
@@ -240,22 +196,13 @@ async function tirerJeuAuHasard() {
   bouton.disabled = false;
 }
 
-async function construireCarrousels() {
-  await construireCarrouselJeux();
-  await construireCarrouselHistorique();
-}
-
 window.setLanguage = function setLanguage(lang) {
   currentLanguage = lang;
   localStorage.setItem("fletchgames_lang", lang);
   applyTranslations();
-  construireCarrousels();
+  construireCarrouselJeux();
 };
 
 applyTranslations();
-construireCarrousels();
-// Une seule fois -- les conteneurs eux-mêmes ne sont jamais recréés
-// (seul leur contenu l'est à chaque construireCarrousels(), voir
-// plus haut), pas la peine de rattacher les écouteurs à chaque fois.
-synchroniserCarrousels(document.getElementById("carrousel-jeux"), document.getElementById("carrousel-historique"));
+construireCarrouselJeux();
 document.getElementById("bouton-jeu-hasard").addEventListener("click", tirerJeuAuHasard);

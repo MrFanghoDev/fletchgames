@@ -303,21 +303,47 @@ de section, panneau affiché, bouton "Équipe suivante" masqué en
 individuel), plage de points dynamique correcte (`[1,2,3]` pour un
 participant à 3 flèches), mise à jour du classement en direct.
 
-**Page d'accueil** (`index.html`, `accueil.js`) : deux carrousels
-(scroll-snap CSS natif, pas le patron piste/JS de la lightbox photo de
-FletchLog -- inutilement complexe pour de simples cartes) -- jeux
-(nom, présentation, mini-résumé "N parties jouées", clic = lance
-`jouer.html?jeu=...`) puis historique/stats (un volet par jeu :
-palmarès par nombre de victoires groupées par NOM, record de points en
-une seule manche avec son détenteur, "le plus assidu" = le plus grand
-nombre de parties jouées). Piège rencontré : `theme.css` a une règle
-générique `button { color: #fff; }` -- comme les cartes du carrousel
-jeux sont de vrais `<button>` (pour être cliquables/accessibles au
-clavier) mais celles de l'historique sont des `<div>`, le titre `<h3>`
-héritait du blanc dans le premier cas et devenait invisible sur fond
-clair. Corrigé en fixant `color: var(--text)` explicitement sur
+**Page d'accueil** (`index.html`, `accueil.js`) : UN SEUL carrousel de
+jeux (scroll-snap CSS natif, pas le patron piste/JS de la lightbox
+photo de FletchLog -- inutilement complexe pour de simples cartes),
+chaque carte combinant présentation ET statistiques (nom, présentation,
+mini-résumé "N parties jouées", palmarès par nombre de victoires
+groupées par NOM, record de points en une seule manche avec son
+détenteur, "le plus assidu" -- ou "Aucune partie jouée" si le jeu n'a
+jamais été joué) ; clic sur la carte = lance `jouer.html?jeu=...`.
+
+**Historique du design (2026-08-25) -- deux carrousels séparés,
+abandonnés** : la version initiale avait deux carrousels côte à côte
+(jeux, puis historique/stats), avec l'idée de les synchroniser pour
+que balayer l'un fasse bouger l'autre. Deux tentatives de
+synchronisation ont échoué en usage réel malgré des tests automatisés
+qui semblaient pourtant valider chacune (`scroll` event -> ne se
+déclenche pas assez pendant un balayage tactile réel -- momentum
+scroll souvent géré hors du thread JS ; sondage `requestAnimationFrame`
+-> toujours pas satisfaisant en usage réel malgré une vérification par
+glissement continu simulé qui semblait concluante). **Leçon retenue** :
+un carrousel simulé par `element.scrollLeft = valeur` en JS (comme dans
+les deux tests) ne reproduit PAS fidèlement la physique d'un vrai
+balayage tactile (accélération, relâchement, snap différé pendant le
+geste) -- un test automatisé qui "passe" sur ce point ne garantit pas
+un rendu correct sur un vrai appareil, se méfier des tests de geste
+tactile simulés en JS pour ce genre de comportement. Plutôt que de
+continuer à corriger, fusionné en un seul carrousel (retour
+utilisateur) -- élimine le problème à la racine.
+
+**Piège rencontré (toujours valable)** : `theme.css` a une règle
+générique `button { color: #fff; }` -- les cartes du carrousel sont de
+vrais `<button>` (pour être cliquables/accessibles au clavier), donc le
+titre `<h3>` hérite du blanc et devient invisible sur fond clair sans
+override explicite. Corrigé en fixant `color: var(--text)` sur
 `.carrousel-carte`. À garder en tête pour tout futur bouton générique
 réutilisant une classe pensée à l'origine pour un `<div>`.
+
+**Jeu au hasard** (`#bouton-jeu-hasard`, `tirerJeuAuHasard()`) : fait
+défiler rapidement le carrousel (plusieurs tours complets puis
+ralentit, effet roulette) et s'arrête sur un jeu tiré au sort. Reste
+sur place une fois arrêté -- ne lance pas la partie automatiquement, un
+tap sur la carte suffit ensuite comme d'habitude.
 
 **Page Aide** (`aide.html`) : même patron sommaire/sections que
 `fletchlog/aide.html`, contenu propre à FletchGames (installation PWA,
